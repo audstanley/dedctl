@@ -98,9 +98,18 @@ Frontend runs on `http://localhost:5173` by default.
 - Svelte stores (state management)
 - EventSource API (log streaming)
 
-## Development
+## Implementation Phases
 
-See `phase-0.md` and `phase-1.md` for implementation roadmap.
+✅ **Phase 1**: Git repository setup with backend moved to `backend/`
+✅ **Phase 2**: SvelteKit frontend with Tailwind CSS
+✅ **Phase 3**: API client and authentication stores
+✅ **Phase 4**: Login and registration pages
+✅ **Phase 5**: Dashboard layout with navigation
+✅ **Phase 6**: Game list dashboard
+✅ **Phase 7**: Game detail page with controls
+✅ **Phase 8**: Real-time log viewer with SSE
+
+## License
 
 ## License
 
