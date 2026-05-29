@@ -1,0 +1,17 @@
+server:
+  port: "8080"
+  host: "localhost"
+
+database:
+  host: "localhost"
+  port: "5432"
+  name: "steamctl"
+  user: "steamctl"
+  password: "steamctl"
+
+jwt:
+  secret_key: "your-secret-key-here"
+  expires_in: "24h"
+
+game:
+  base_path: "$HOME/Games"

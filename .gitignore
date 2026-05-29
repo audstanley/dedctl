@@ -1,0 +1,32 @@
+# Build artifacts
+backend/steam-game-control/data/
+backend/steam-game-control/dist/
+frontend/games-frontend/node_modules/
+frontend/games-frontend/.svelte-kit/
+frontend/games-frontend/dist/
+frontend/games-frontend/build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Secrets
+*.pem
+*.key
+secrets/
