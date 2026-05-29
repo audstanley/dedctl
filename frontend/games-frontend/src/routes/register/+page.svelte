@@ -2,12 +2,12 @@
   import { authStore } from '$lib/stores/auth';
   import { goto } from '$app/navigation';
 
-  let username = '';
-  let password = '';
-  let confirmPassword = '';
-  let isAdmin = false;
-  let error = '';
-  let loading = false;
+  let username = $state('');
+  let password = $state('');
+  let confirmPassword = $state('');
+  let isAdmin = $state(false);
+  let error = $state('');
+  let loading = $state(false);
 
   async function handleRegister() {
     error = '';

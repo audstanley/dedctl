@@ -2,10 +2,10 @@
   import { authStore } from '$lib/stores/auth';
   import { goto } from '$app/navigation';
 
-  let username = '';
-  let password = '';
-  let error = '';
-  let loading = false;
+  let username = $state('');
+  let password = $state('');
+  let error = $state('');
+  let loading = $state(false);
 
   async function handleLogin() {
     error = '';
@@ -48,7 +48,7 @@
       </div>
     {/if}
 
-    <form class="mt-8 space-y-6" on:submit|preventDefault={handleLogin}>
+    <form class="mt-8 space-y-6" onsubmit={(e) => { e.preventDefault(); handleLogin(); }}>
       <div class="rounded-md shadow-sm space-y-4">
         <div>
           <label for="username" class="block text-sm font-medium text-gray-300 mb-1">

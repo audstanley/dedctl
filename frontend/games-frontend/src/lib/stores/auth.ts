@@ -1,72 +1,80 @@
-import { writable, get, read, type Writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 
 type User = {
   username: string;
   is_admin: boolean;
 };
 
-class AuthStore {
-  private tokenKey = 'jwt_token';
-  private userKey = 'user_data';
+type AuthState = {
+  token: string | null;
+  user: User | null;
+};
 
-  private token: Writable<string | null> = writable(null);
-  private user: Writable<User | null> = writable(null);
+const tokenKey = 'jwt_token';
+const userKey = 'user_data';
 
-  constructor() {
-    this.loadFromStorage();
-  }
+function loadFromStorage(): AuthState {
+  const storedToken = localStorage.getItem(tokenKey);
+  const storedUser = localStorage.getItem(userKey);
 
-  private loadFromStorage() {
-    const storedToken = localStorage.getItem(this.tokenKey);
-    const storedUser = localStorage.getItem(this.userKey);
-
-    if (storedToken) {
-      this.token.set(storedToken);
-    }
-
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        this.user.set(parsedUser);
-      } catch (e) {
-        localStorage.removeItem(this.userKey);
-      }
+  if (storedToken && storedUser) {
+    try {
+      return {
+        token: storedToken,
+        user: JSON.parse(storedUser),
+      };
+    } catch (e) {
+      localStorage.removeItem(tokenKey);
+      localStorage.removeItem(userKey);
     }
   }
 
+  return { token: null, user: null };
+}
+
+export const authStore = writable<AuthState>(loadFromStorage());
+
+export const authManager = {
   getToken(): string | null {
-    return read(this.token);
-  }
+    let token: string | null = null;
+    authStore.subscribe((value) => {
+      token = value.token;
+    })();
+    return token;
+  },
 
   getUser(): User | null {
-    return read(this.user);
-  }
+    let user: User | null = null;
+    authStore.subscribe((value) => {
+      user = value.user;
+    })();
+    return user;
+  },
 
   isAuthenticated(): boolean {
-    const token = get(this.token);
-    return token !== null;
-  }
+    return authManager.getToken() !== null;
+  },
 
   setToken(token: string) {
-    this.token.set(token);
-    localStorage.setItem(this.tokenKey, token);
-  }
+    authStore.update((state) => ({ ...state, token }));
+    localStorage.setItem(tokenKey, token);
+  },
 
   setUser(user: User) {
-    this.user.set(user);
-    localStorage.setItem(this.userKey, JSON.stringify(user));
-  }
+    authStore.update((state) => ({ ...state, user }));
+    localStorage.setItem(userKey, JSON.stringify(user));
+  },
 
   async login(username: string, password: string) {
     try {
       const response = await api.login(username, password);
-      this.setToken(response.token);
-      this.setUser(response.user);
+      authManager.setToken(response.token);
+      authManager.setUser(response.user);
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
-  }
+  },
 
   async register(username: string, password: string, isAdmin: boolean) {
     try {
@@ -75,22 +83,19 @@ class AuthStore {
     } catch (error: any) {
       return { success: false, error: error.message };
     }
-  }
+  },
 
   logout() {
-    this.token.set(null);
-    this.user.set(null);
-    localStorage.removeItem(this.tokenKey);
-    localStorage.removeItem(this.userKey);
-  }
+    authStore.set({ token: null, user: null });
+    localStorage.removeItem(tokenKey);
+    localStorage.removeItem(userKey);
+  },
 
   requireAuth(): boolean {
-    if (!this.isAuthenticated()) {
+    if (!authManager.isAuthenticated()) {
       window.location.href = '/';
       return false;
     }
     return true;
-  }
-}
-
-export const authStore = new AuthStore();
+  },
+};
