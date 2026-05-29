@@ -66,8 +66,8 @@ run-frontend:
 			rm $(FRONTEND_DIR)/frontend.pid; \
 		fi; \
 	fi
-	@cd $(FRONTEND_DIR) && npm run dev > $(FRONTEND_DIR)/frontend.log 2>&1 & echo $$! > $(FRONTEND_DIR)/frontend.pid
-	@echo "Frontend started (PID: $$(cat $(FRONTEND_DIR)/frontend.pid))"
+	@cd $(FRONTEND_DIR) && npm run dev -- --host 0.0.0.0 > $(FRONTEND_DIR)/frontend.log 2>&1 & echo $$! > $(FRONTEND_DIR)/frontend.pid
+	@sleep 2 && echo "Frontend started (PID: $$(cat $(FRONTEND_DIR)/frontend.pid))"
 
 # Stop frontend
 stop-frontend:
