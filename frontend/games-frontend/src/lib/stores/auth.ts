@@ -32,6 +32,8 @@ function loadFromStorage(): AuthState {
   return { token: null, user: null };
 }
 
+export type { User };
+
 export const authStore = writable<AuthState>(loadFromStorage());
 
 export const authManager = {
