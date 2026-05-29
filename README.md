@@ -79,7 +79,7 @@ npm install
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173` by default.
+Frontend runs on `http://localhost:5174` by default.
 
 ## Technologies
 
