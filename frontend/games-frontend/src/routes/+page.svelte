@@ -1,26 +1,12 @@
 <script lang="ts">
   import { authStore } from '$lib/stores/auth';
   import { goto } from '$app/navigation';
+  import { Alert, Button } from 'flowbite-svelte';
 
   let username = $state('');
   let password = $state('');
-  let error = $state('');
+  let showDismissAlert = $state(true);
   let loading = $state(false);
-
-  async function handleLogin() {
-    error = '';
-    loading = true;
-
-    const result = await authStore.login(username, password);
-
-    if (result.success) {
-      goto('/dashboard');
-    } else {
-      error = result.error || 'Login failed';
-    }
-
-    loading = false;
-  }
 
   function validateUsername(): boolean {
     return username.trim().length >= 3;
@@ -29,27 +15,42 @@
   function validatePassword(): boolean {
     return password.length >= 6;
   }
+
+  async function handleLogin() {
+    showDismissAlert = true;
+    loading = true;
+
+    const result = await authStore.login(username, password);
+
+    if (result.success) {
+      goto('/dashboard');
+    } else {
+      showDismissAlert = true;
+    }
+
+    loading = false;
+  }
 </script>
 
 <div class="min-h-screen flex items-center justify-center bg-gray-900">
-  <div class="max-w-md w-full space-y-8 p-10 bg-gray-800 rounded-lg shadow-2xl">
-    <div>
-      <h2 class="mt-6 text-center text-3xl font-extrabold text-white">
+  <div class="w-full max-w-md p-8 space-y-8 bg-gray-800 rounded-xl shadow-2xl">
+    <div class="text-center">
+      <h1 class="text-4xl font-extrabold text-white tracking-tight">
         Game Server Control
-      </h2>
-      <p class="mt-2 text-center text-sm text-gray-400">
+      </h1>
+      <p class="mt-3 text-base text-gray-400">
         Sign in to manage your game servers
       </p>
     </div>
 
-    {#if error}
-      <div class="bg-red-500 bg-opacity-20 border border-red-500 text-red-400 px-4 py-3 rounded">
-        {error}
-      </div>
+    {#if showDismissAlert}
+      <Alert color="red" dismissable bind:alertStatus={showDismissAlert}>
+        Login failed - please try again
+      </Alert>
     {/if}
 
     <form class="mt-8 space-y-6" onsubmit={(e) => { e.preventDefault(); handleLogin(); }}>
-      <div class="rounded-md shadow-sm space-y-4">
+      <div class="space-y-4">
         <div>
           <label for="username" class="block text-sm font-medium text-gray-300 mb-1">
             Username
@@ -60,7 +61,7 @@
             type="text"
             bind:value={username}
             required
-            class="appearance-none rounded relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-500 text-gray-100 bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
             placeholder="Enter username"
           />
         </div>
@@ -74,17 +75,17 @@
             type="password"
             bind:value={password}
             required
-            class="appearance-none rounded relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-500 text-gray-100 bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
             placeholder="Enter password"
           />
         </div>
       </div>
 
       <div>
-        <button
+        <Button 
           type="submit"
           disabled={loading || !validateUsername() || !validatePassword()}
-          class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          color="blue"
         >
           {#if loading}
             <span class="flex items-center">
@@ -97,11 +98,11 @@
           {:else}
             Sign in
           {/if}
-        </button>
+        </Button>
       </div>
 
       <div class="text-center">
-        <a href="/register" class="font-medium text-blue-400 hover:text-blue-300">
+        <a href="/register" class="font-medium text-blue-400 hover:text-blue-300 transition">
           Don't have an account? Register
         </a>
       </div>

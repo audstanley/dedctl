@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-type User = {
+export type User = {
   username: string;
   is_admin: boolean;
 };
@@ -14,6 +14,10 @@ const tokenKey = 'jwt_token';
 const userKey = 'user_data';
 
 function loadFromStorage(): AuthState {
+  if (typeof localStorage === 'undefined') {
+    return { token: null, user: null };
+  }
+  
   const storedToken = localStorage.getItem(tokenKey);
   const storedUser = localStorage.getItem(userKey);
 

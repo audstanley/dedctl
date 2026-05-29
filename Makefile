@@ -33,7 +33,8 @@ run-backend:
 			rm $(BUILD_DIR)/backend.pid; \
 		fi; \
 	fi
-	@cd $(BUILD_DIR) && go run main.go > $(BUILD_DIR)/backend.log 2>&1 & echo $$! > $(BUILD_DIR)/backend.pid
+	@mkdir -p $(BUILD_DIR)/logs
+	@cd $(BUILD_DIR) && nohup go run main.go > logs/backend.log 2>&1 & echo $$! > $(BUILD_DIR)/backend.pid
 	@echo "Backend started (PID: $$(cat $(BUILD_DIR)/backend.pid))"
 
 # Stop backend

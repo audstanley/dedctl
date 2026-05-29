@@ -2,17 +2,20 @@
   import { goto } from '$app/navigation';
   import { gamesStore } from '$lib/stores/games';
   import { onMount } from 'svelte';
+  import { Alert, Card, Badge } from 'flowbite-svelte';
 
   let games = $state<string[]>([]);
   let loading = $state(true);
-  let error = $state('');
+  let showDismissAlert = $state(false);
+  let errorMessage = $state('');
 
   onMount(async () => {
     const result = await gamesStore.fetchGames();
     if (result.success) {
       games = result.games;
     } else {
-      error = result.error || 'Failed to load games';
+      errorMessage = result.error || 'Failed to load games';
+      showDismissAlert = true;
     }
     loading = false;
   });
@@ -23,12 +26,14 @@
 
   async function refreshGames() {
     loading = true;
-    error = '';
+    showDismissAlert = false;
+    errorMessage = '';
     const result = await gamesStore.fetchGames();
     if (result.success) {
       games = result.games;
     } else {
-      error = result.error || 'Failed to refresh games';
+      errorMessage = result.error || 'Failed to refresh games';
+      showDismissAlert = true;
     }
     loading = false;
   }
@@ -56,10 +61,10 @@
     </button>
   </div>
 
-  {#if error}
-    <div class="bg-red-500 bg-opacity-20 border border-red-500 text-red-400 px-4 py-3 rounded">
-      {error}
-    </div>
+  {#if showDismissAlert && errorMessage}
+    <Alert color="red" dismissable bind:alertStatus={showDismissAlert}>
+      {errorMessage}
+    </Alert>
   {/if}
 
   {#if games.length === 0 && !loading}
@@ -70,16 +75,13 @@
   {:else}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {#each games as game (game)}
-        <div
-          onclick={() => handleGameClick(game)}
-          class="bg-gray-800 rounded-lg p-6 shadow-lg hover:shadow-xl hover:bg-gray-750 cursor-pointer transition border border-gray-700 hover:border-blue-500"
-        >
+        <Card class="p-6 bg-gray-800 hover:bg-gray-750 cursor-pointer transition" onclick={() => handleGameClick(game)}>
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-bold text-white capitalize">{game}</h2>
-            <span class="px-3 py-1 bg-green-600 text-white text-xs rounded-full">Ready</span>
+            <Badge color="green">Ready</Badge>
           </div>
           <p class="text-gray-400 text-sm">Click to manage server</p>
-        </div>
+        </Card>
       {/each}
     </div>
   {/if}

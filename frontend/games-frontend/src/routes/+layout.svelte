@@ -1,14 +1,21 @@
 <script lang="ts">
-	import favicon from '$lib/assets/favicon.svg';
-	import { goto } from '$app/navigation';
-	import { authStore } from '$lib/stores/auth';
+  import favicon from '$lib/assets/favicon.svg';
+  import { goto } from '$app/navigation';
+  import { authStore } from '$lib/stores/auth';
+  import { Navbar, Button } from 'flowbite-svelte';
+  import { UserCircleSolid } from 'flowbite-svelte-icons';
 
-	let { children } = $props();
+  let { children } = $props();
+  let user = $state(authStore.getUser());
 
-	function handleLogout() {
-		authStore.logout();
-		goto('/');
-	}
+  $effect(() => {
+    user = authStore.getUser();
+  });
+
+  function handleLogout() {
+    authStore.logout();
+    goto('/');
+  }
 </script>
 
 <svelte:head>
@@ -16,33 +23,27 @@
 </svelte:head>
 
 <div class="min-h-screen bg-gray-900">
-	<nav class="bg-gray-800 shadow-lg">
-		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-			<div class="flex items-center justify-between h-16">
-				<div class="flex items-center">
-					<a href="/dashboard" class="text-white text-xl font-bold hover:text-blue-400 transition">
-						Game Server Control
-					</a>
-				</div>
-				<div class="flex items-center space-x-4">
-					{#if $authStore.token}
-						<span class="text-gray-300 text-sm">
-							{$authStore.user?.username}
-							{#if $authStore.user?.is_admin}
-								<span class="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded">ADMIN</span>
-							{/if}
-						</span>
-  <button
-			onclick={handleLogout}
-			class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded transition"
-		>
-			Logout
-		</button>
-					{/if}
-				</div>
+	<Navbar class="bg-gray-800 shadow-lg" fluid>
+		<div class="flex w-full md:flex-row md:items-center md:justify-between">
+			<a href="/dashboard" class="text-white text-xl font-bold hover:text-blue-400 transition">
+				Game Server Control
+			</a>
+			<div class="flex items-center">
+				{#if user}
+					<div class="hidden md:block mr-4 text-gray-300 text-sm flex items-center">
+						<UserCircleSolid class="h-5 w-5 mr-2" />
+						<span>{user.username}</span>
+						{#if user.is_admin}
+							<span class="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded">ADMIN</span>
+						{/if}
+					</div>
+					<Button color="gray" size="xs" onclick={handleLogout}>
+						Logout
+					</Button>
+				{/if}
 			</div>
 		</div>
-	</nav>
+	</Navbar>
 
 	<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 		{@render children()}
