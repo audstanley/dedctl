@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { api } from '$lib/api/client';
 
 export type User = {
   username: string;
@@ -36,46 +37,47 @@ function loadFromStorage(): AuthState {
   return { token: null, user: null };
 }
 
-export type { User };
+// Create the store
+const store = writable<AuthState>(loadFromStorage());
 
-export const authStore = writable<AuthState>(loadFromStorage());
+// Get the store value
+function getStoreValue() {
+  let value: AuthState | null = null;
+  store.subscribe((v) => {
+    value = v;
+  })();
+  return value;
+}
 
-export const authManager = {
+// Auth functions
+export const auth = {
   getToken(): string | null {
-    let token: string | null = null;
-    authStore.subscribe((value) => {
-      token = value.token;
-    })();
-    return token;
+    return getStoreValue()?.token || null;
   },
 
   getUser(): User | null {
-    let user: User | null = null;
-    authStore.subscribe((value) => {
-      user = value.user;
-    })();
-    return user;
+    return getStoreValue()?.user || null;
   },
 
   isAuthenticated(): boolean {
-    return authManager.getToken() !== null;
+    return auth.getToken() !== null;
   },
 
   setToken(token: string) {
-    authStore.update((state) => ({ ...state, token }));
+    store.update((state) => ({ ...state, token }));
     localStorage.setItem(tokenKey, token);
   },
 
   setUser(user: User) {
-    authStore.update((state) => ({ ...state, user }));
+    store.update((state) => ({ ...state, user }));
     localStorage.setItem(userKey, JSON.stringify(user));
   },
 
   async login(username: string, password: string) {
     try {
       const response = await api.login(username, password);
-      authManager.setToken(response.token);
-      authManager.setUser(response.user);
+      auth.setToken(response.token);
+      auth.setUser(response.user);
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -92,16 +94,20 @@ export const authManager = {
   },
 
   logout() {
-    authStore.set({ token: null, user: null });
+    store.set({ token: null, user: null });
     localStorage.removeItem(tokenKey);
     localStorage.removeItem(userKey);
   },
 
   requireAuth(): boolean {
-    if (!authManager.isAuthenticated()) {
+    if (!auth.isAuthenticated()) {
       window.location.href = '/';
       return false;
     }
     return true;
   },
 };
+
+// Export both the store and the auth functions
+export { store as authStore };
+export const { getToken, getUser, isAuthenticated, setToken, setUser, login, register, logout, requireAuth } = auth;

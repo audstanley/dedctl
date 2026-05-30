@@ -1,17 +1,16 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { authManager } from '$lib/stores/auth';
   import { onMount } from 'svelte';
-  import type { User } from '$lib/stores/auth';
+  import { getUser, isAuthenticated, logout, type User } from '$lib/stores/auth';
 
   let { children } = $props();
   let currentUser = $state<User | null>(null);
 
   onMount(() => {
-    if (!authManager.isAuthenticated()) {
+    if (!isAuthenticated()) {
       goto('/');
     }
-    currentUser = authManager.getUser();
+    currentUser = getUser();
   });
 </script>
 
@@ -33,7 +32,7 @@
 							{/if}
 						</span>
 						<button
-							onclick={authManager.logout}
+							onclick={logout}
 							class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded transition"
 						>
 							Logout

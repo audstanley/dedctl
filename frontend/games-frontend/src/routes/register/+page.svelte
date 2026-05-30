@@ -1,34 +1,27 @@
 <script lang="ts">
   import { authStore } from '$lib/stores/auth';
   import { goto } from '$app/navigation';
-  import { Alert, Button, Input, Label, Checkbox, Helper } from 'flowbite-svelte';
 
   let username = $state('');
   let password = $state('');
   let confirmPassword = $state('');
   let isAdmin = $state(false);
-  let showDismissAlert = $state(false);
-  let registerError = $state('');
+  let error = $state('');
+  let loading = $state(false);
 
   async function handleRegister() {
-    showDismissAlert = false;
-    registerError = '';
+    error = '';
+    loading = true;
 
-    if (username.length < 3) {
-      registerError = 'Username must be at least 3 characters';
-      showDismissAlert = true;
+    if (password !== confirmPassword) {
+      error = 'Passwords do not match';
+      loading = false;
       return;
     }
 
     if (password.length < 6) {
-      registerError = 'Password must be at least 6 characters';
-      showDismissAlert = true;
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      registerError = 'Passwords do not match';
-      showDismissAlert = true;
+      error = 'Password must be at least 6 characters';
+      loading = false;
       return;
     }
 
@@ -37,76 +30,105 @@
     if (result.success) {
       goto('/');
     } else {
-      registerError = result.error || 'Registration failed';
-      showDismissAlert = true;
+      error = result.error || 'Registration failed';
     }
+
+    loading = false;
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-gray-900">
-  <div class="w-full max-w-md p-8 space-y-8 bg-gray-800 rounded-xl shadow-2xl">
-    <div class="text-center">
-      <h2 class="text-4xl font-extrabold text-white">
+<div class="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-md w-full space-y-8">
+    <div>
+      <h2 class="mt-6 text-center text-3xl font-bold text-white">
         Create Account
       </h2>
-      <p class="mt-3 text-base text-gray-400">
-        Register to manage game servers
+      <p class="mt-2 text-center text-sm text-gray-400">
+        Register to manage your servers
       </p>
     </div>
 
-    {#if showDismissAlert && registerError}
-      <Alert color="red" dismissable bind:alertStatus={showDismissAlert}>
-        {registerError}
-      </Alert>
+    {#if error}
+      <div class="bg-red-500 bg-opacity-10 border border-red-500 text-red-400 px-4 py-3 rounded-lg text-sm">
+        {error}
+      </div>
     {/if}
 
     <form class="mt-8 space-y-6" onsubmit={(e) => { e.preventDefault(); handleRegister(); }}>
       <div class="space-y-4">
         <div>
-          <Label for="username" class="mb-2">Username</Label>
-          <Input 
-            id="username" 
-            type="text" 
+          <label for="username" class="block text-sm font-medium text-gray-300 mb-1">
+            Username
+          </label>
+          <input
+            id="username"
+            name="username"
+            type="text"
             bind:value={username}
+            required
+            class="w-full px-4 py-2.5 bg-gray-800 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             placeholder="Choose username (min 3 chars)"
-            required
           />
         </div>
         <div>
-          <Label for="password" class="mb-2">Password</Label>
-          <Input 
-            id="password" 
-            type="password" 
+          <label for="password" class="block text-sm font-medium text-gray-300 mb-1">
+            Password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
             bind:value={password}
-            placeholder="Min 6 characters"
             required
+            class="w-full px-4 py-2.5 bg-gray-800 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            placeholder="Min 6 characters"
           />
         </div>
         <div>
-          <Label for="confirmPassword" class="mb-2">Confirm Password</Label>
-          <Input 
-            id="confirmPassword" 
-            type="password" 
+          <label for="confirmPassword" class="block text-sm font-medium text-gray-300 mb-1">
+            Confirm Password
+          </label>
+          <input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
             bind:value={confirmPassword}
-            placeholder="Re-enter password"
             required
+            class="w-full px-4 py-2.5 bg-gray-800 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            placeholder="Re-enter password"
           />
         </div>
       </div>
 
-      <div class="flex items-start">
-        <Checkbox id="isAdmin" bind:checked={isAdmin} />
+      <div class="flex items-center">
+        <input
+          id="isAdmin"
+          name="isAdmin"
+          type="checkbox"
+          bind:checked={isAdmin}
+          class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-600 rounded bg-gray-700"
+        />
         <label for="isAdmin" class="ml-2 block text-sm text-gray-300">
-          Admin account (can create other admins)
+          Admin account
         </label>
       </div>
 
-      <Button type="submit" color="blue">
-        Register
-      </Button>
+      <div>
+        <button
+          type="submit"
+          disabled={loading || username.length < 3 || password.length < 6 || password !== confirmPassword}
+          class="w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {#if loading}
+            Creating account...
+          {:else}
+            Register
+          {/if}
+        </button>
+      </div>
 
       <div class="text-center">
-        <a href="/" class="font-medium text-blue-400 hover:text-blue-300 transition">
+        <a href="/" class="font-medium text-blue-400 hover:text-blue-300 text-sm">
           Already have an account? Sign in
         </a>
       </div>

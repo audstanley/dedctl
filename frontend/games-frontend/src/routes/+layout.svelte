@@ -1,19 +1,19 @@
 <script lang="ts">
   import favicon from '$lib/assets/favicon.svg';
   import { goto } from '$app/navigation';
-  import { authStore } from '$lib/stores/auth';
+  import { getUser, logout, type User } from '$lib/stores/auth';
   import { Navbar, Button } from 'flowbite-svelte';
   import { UserCircleSolid } from 'flowbite-svelte-icons';
 
   let { children } = $props();
-  let user = $state(authStore.getUser());
+  let user = $state<User | null>(getUser());
 
   $effect(() => {
-    user = authStore.getUser();
+    user = getUser();
   });
 
   function handleLogout() {
-    authStore.logout();
+    logout();
     goto('/');
   }
 </script>
