@@ -26,8 +26,9 @@ type UserConfig struct {
 
 // ServerConfig holds server configuration
 type ServerConfig struct {
-	Port string `mapstructure:"port"`
-	Host string `mapstructure:"host"`
+	Port    string   `mapstructure:"port"`
+	Host    string   `mapstructure:"host"`
+	Origins []string `mapstructure:"origins"`
 }
 
 // JWTConfig holds JWT configuration
@@ -51,7 +52,8 @@ func LoadConfig() (*Config, error) {
 
 	// Set default values
 	viper.SetDefault("server.port", "8080")
-	viper.SetDefault("server.host", "localhost")
+	viper.SetDefault("server.host", "0.0.0.0")
+	viper.SetDefault("server.origins", []string{"http://localhost:5174"})
 	viper.SetDefault("game.base_path", "$HOME/Games")
 	viper.SetDefault("users", []UserConfig{
 		{Username: "admin", PasswordHash: "", IsAdmin: true},

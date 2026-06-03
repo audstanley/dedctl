@@ -1,6 +1,10 @@
 server:
   port: "8080"
-  host: "localhost"
+  host: "0.0.0.0"
+  origins:
+    - "http://localhost:5174"
+    - "http://192.168.1.18:5174"
+    - "https://your-domain.com"
 
 jwt:
   secret_key: "your-secret-key-here"

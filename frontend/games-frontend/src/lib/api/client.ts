@@ -32,7 +32,12 @@ type LogEntry = {
 };
 
 class ApiClient {
-  private baseUrl: string = '/api';
+  private get baseUrl(): string {
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return `http://${window.location.hostname}:8080`;
+    }
+    return '/api';
+  }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
@@ -98,19 +103,12 @@ class ApiClient {
 
   streamLogs(gameName: string): EventSource {
     const token = localStorage.getItem('jwt_token');
-    const url = `${this.baseUrl}/games/${gameName}/logs`;
-    
-    const headers: Record<string, string> = {};
+    let url = `${this.baseUrl}/games/${gameName}/logs`;
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      url += `?token=${encodeURIComponent(token)}`;
     }
 
-    const eventSource = new EventSource(url, {
-      withCredentials: false,
-      headers,
-    });
-
-    return eventSource;
+    return new EventSource(url);
   }
 }
 

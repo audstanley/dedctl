@@ -27,7 +27,7 @@ func (h *GameHandler) ListGames(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if games == nil {
+if games == nil {
 		games = []string{}
 	}
 
@@ -153,19 +153,25 @@ func (h *GameHandler) GetGameStatus(w http.ResponseWriter, r *http.Request) {
 func AuthRequired(secretKey string) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				WriteError(w, http.StatusUnauthorized, "Authorization header required")
-				return
+			token := r.URL.Query().Get("token")
+
+			if token == "" {
+				authHeader := r.Header.Get("Authorization")
+				if authHeader == "" {
+					WriteError(w, http.StatusUnauthorized, "Authorization header required")
+					return
+				}
+
+				tokenParts := strings.Split(authHeader, " ")
+				if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+					WriteError(w, http.StatusUnauthorized, "Invalid authorization format")
+					return
+				}
+
+				token = tokenParts[1]
 			}
 
-			tokenParts := strings.Split(authHeader, " ")
-			if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-				WriteError(w, http.StatusUnauthorized, "Invalid authorization format")
-				return
-			}
-
-			_, err := utils.ValidateToken(tokenParts[1], secretKey)
+			_, err := utils.ValidateToken(token, secretKey)
 			if err != nil {
 				WriteError(w, http.StatusUnauthorized, "Invalid or expired token")
 				return

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"steam-game-control/internal/config"
@@ -77,10 +78,22 @@ func Run() error {
 	gameRouter.HandleFunc("/{game}/logs", gameHandler.StreamLogs).Methods("GET")
 	gameRouter.HandleFunc("/{game}/status", gameHandler.GetGameStatus).Methods("GET")
 
+	// Build CORS allowed origins set
+	allowedOrigins := make(map[string]bool)
+	for _, origin := range cfg.Server.Origins {
+		origin = strings.TrimSpace(origin)
+		if origin != "" {
+			allowedOrigins[origin] = true
+		}
+	}
+
+	// CORS middleware wraps the entire router
+	corsHandler := handler.CORS(r, allowedOrigins)
+
 	// Start server
 	server := &http.Server{
 		Addr:    cfg.Server.Host + ":" + cfg.Server.Port,
-		Handler: r,
+		Handler: corsHandler,
 	}
 
 	// Create a channel to listen for interrupt signals

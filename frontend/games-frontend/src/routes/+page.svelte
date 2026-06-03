@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { authStore } from '$lib/stores/auth';
   import { goto } from '$app/navigation';
+  import { login } from '$lib/stores/auth';
   import { Alert, Button, Input, Label } from 'flowbite-svelte';
 
   let username = $state('');
@@ -14,7 +14,7 @@
     error = '';
     loading = true;
 
-    const result = await authStore.login(username, password);
+    const result = await login(username, password);
 
     if (result.success) {
       goto('/dashboard');
