@@ -52,6 +52,7 @@ func Run() error {
 		users = append(users, service.UserInfo{
 			Username:     u.Username,
 			PasswordHash: u.PasswordHash,
+			PasswordType: u.PasswordType,
 			IsAdmin:      u.IsAdmin,
 		})
 	}

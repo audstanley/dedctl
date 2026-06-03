@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const testSecret = "test-secret-key-for-jwt-validation"
@@ -49,14 +51,25 @@ func TestValidateTokenValid(t *testing.T) {
 }
 
 func TestValidateTokenExpired(t *testing.T) {
-	// Generate a token with a past expiration by manipulating the claim directly
-	token, _ := GenerateToken("expireduser", testSecret)
-	_, err := ValidateToken(token, "wrong-secret")
-	if err == nil {
-		t.Fatal("expected error for wrong secret, got nil")
+	claims := &JWTClaims{
+		Username: "expireduser",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-2 * time.Hour)),
+		},
 	}
-	if !strings.Contains(err.Error(), "signature is invalid") && !strings.Contains(err.Error(), "invalid signature") {
-		t.Errorf("expected signature error, got: %v", err)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatalf("failed to sign token: %v", err)
+	}
+
+	_, err = ValidateToken(tokenString, testSecret)
+	if err == nil {
+		t.Fatal("expected error for expired token, got nil")
+	}
+	if !strings.Contains(err.Error(), "expired") {
+		t.Errorf("expected 'expired' in error, got: %v", err)
 	}
 }
 
@@ -79,6 +92,25 @@ func TestValidateTokenMalformed(t *testing.T) {
 	_, err := ValidateToken("not-a-real-token", testSecret)
 	if err == nil {
 		t.Fatal("expected error for malformed token, got nil")
+	}
+}
+
+func TestValidateTokenInvalidSignatureMethod(t *testing.T) {
+	// Create a token with HMAC but sign with RS256 (requires key pair)
+	// Instead, create a properly formatted JWT with a different signing method
+	claims := &JWTClaims{
+		Username: "testuser",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+		},
+	}
+	// Sign with HS256 using wrong secret — this tests the jwt.ValidationError path
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, _ := token.SignedString([]byte("wrong-secret"))
+
+	_, err := ValidateToken(tokenString, testSecret)
+	if err == nil {
+		t.Fatal("expected validation error, got nil")
 	}
 }
 
@@ -112,7 +144,6 @@ func TestTokenExpiryWithin24Hours(t *testing.T) {
 	expiry := claims.ExpiresAt.Time
 	duration := expiry.Sub(now)
 
-	// Should expire between 23h and 25h from now
 	if duration < 23*time.Hour || duration > 25*time.Hour {
 		t.Errorf("expected expiry between 23h and 25h, got %v", duration.Round(time.Minute))
 	}
@@ -142,5 +173,12 @@ func TestGenerateAndValidateRoundTrip(t *testing.T) {
 		if claims.Username != tc.username {
 			t.Errorf("%s: expected username '%s', got '%s'", tc.username, tc.username, claims.Username)
 		}
+	}
+}
+
+func TestValidateTokenMissingParts(t *testing.T) {
+	_, err := ValidateToken("abc.def", testSecret)
+	if err == nil {
+		t.Fatal("expected error for token with wrong number of parts, got nil")
 	}
 }

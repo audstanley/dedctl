@@ -9,6 +9,9 @@ import (
 	"github.com/spf13/viper"
 )
 
+// viperInstance is a package-level viper instance to allow test overrides
+var viperInstance = viper.New()
+
 // Config holds the application configuration
 type Config struct {
 	Server ServerConfig   `mapstructure:"server"`
@@ -19,9 +22,10 @@ type Config struct {
 
 // UserConfig holds a single user's credentials
 type UserConfig struct {
-	Username    string `mapstructure:"username"`
+	Username     string `mapstructure:"username"`
 	PasswordHash string `mapstructure:"password_hash"`
-	IsAdmin     bool   `mapstructure:"is_admin"`
+	PasswordType string `mapstructure:"password_type"`
+	IsAdmin      bool   `mapstructure:"is_admin"`
 }
 
 // ServerConfig holds server configuration
@@ -44,23 +48,27 @@ type GameConfig struct {
 
 // LoadConfig loads configuration from file or environment variables
 func LoadConfig() (*Config, error) {
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("./configs")
-	viper.AddConfigPath("/etc/steamctl/")
-	viper.AddConfigPath("$HOME/.steamctl/")
+	hasFile := viperInstance.ConfigFileUsed() != ""
+
+	if !hasFile {
+		viperInstance.SetConfigName("config")
+		viperInstance.SetConfigType("yaml")
+		viperInstance.AddConfigPath("./configs")
+		viperInstance.AddConfigPath("/etc/steamctl/")
+		viperInstance.AddConfigPath("$HOME/.steamctl/")
+	}
 
 	// Set default values
-	viper.SetDefault("server.port", "8080")
-	viper.SetDefault("server.host", "0.0.0.0")
-	viper.SetDefault("server.origins", []string{"http://localhost:5174"})
-	viper.SetDefault("game.base_path", "$HOME/Games")
-	viper.SetDefault("users", []UserConfig{
+	viperInstance.SetDefault("server.port", "8080")
+	viperInstance.SetDefault("server.host", "0.0.0.0")
+	viperInstance.SetDefault("server.origins", []string{"http://localhost:5174"})
+	viperInstance.SetDefault("game.base_path", "$HOME/Games")
+	viperInstance.SetDefault("users", []UserConfig{
 		{Username: "admin", PasswordHash: "", IsAdmin: true},
 	})
 
 	// Read config
-	if err := viper.ReadInConfig(); err != nil {
+	if err := viperInstance.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			fmt.Println("No config file found, using defaults")
 		} else {
@@ -69,12 +77,12 @@ func LoadConfig() (*Config, error) {
 	}
 
 	// Read environment variables
-	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viperInstance.AutomaticEnv()
+	viperInstance.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// Parse config
 	var config Config
-	if err := viper.Unmarshal(&config); err != nil {
+	if err := viperInstance.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("unable to decode into struct: %v", err)
 	}
 

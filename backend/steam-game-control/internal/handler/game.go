@@ -11,17 +11,17 @@ import (
 )
 
 type GameHandler struct {
-	gameService *service.GameService
+	gameBackend service.GameBackend
 }
 
-func NewGameHandler(gameService *service.GameService) *GameHandler {
+func NewGameHandler(gameBackend service.GameBackend) *GameHandler {
 	return &GameHandler{
-		gameService: gameService,
+		gameBackend: gameBackend,
 	}
 }
 
 func (h *GameHandler) ListGames(w http.ResponseWriter, r *http.Request) {
-	games, err := h.gameService.ListGames()
+	games, err := h.gameBackend.ListGames()
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to list games: %v", err))
 		return
@@ -42,7 +42,7 @@ func (h *GameHandler) StartGame(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	gameName := vars["game"]
 
-	err := h.gameService.StartGame(gameName)
+	err := h.gameBackend.StartGame(gameName)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to start game: %v", err))
 		return
@@ -62,7 +62,7 @@ func (h *GameHandler) StopGame(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	gameName := vars["game"]
 
-	err := h.gameService.StopGame(gameName)
+	err := h.gameBackend.StopGame(gameName)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to stop game: %v", err))
 		return
@@ -82,7 +82,7 @@ func (h *GameHandler) RestartGame(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	gameName := vars["game"]
 
-	err := h.gameService.RestartGame(gameName)
+	err := h.gameBackend.RestartGame(gameName)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to restart game: %v", err))
 		return
@@ -118,7 +118,7 @@ func (h *GameHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 
-	err := h.gameService.StreamLogs(gameName, sendLog)
+	err := h.gameBackend.StreamLogs(gameName, sendLog)
 	if err != nil {
 		fmt.Fprintf(w, "data: %s\n\n", err.Error())
 		flusher.Flush()
@@ -130,7 +130,7 @@ func (h *GameHandler) GetGameStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	gameName := vars["game"]
 
-	status, err := h.gameService.GetGameStatus(gameName)
+	status, err := h.gameBackend.GetGameStatus(gameName)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get game status: %v", err))
 		return

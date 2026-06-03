@@ -1,18 +1,31 @@
 package service
 
 import (
-	"crypto/sha256"
+	"crypto/sha512"
 	"fmt"
 	"strings"
 	"testing"
 
+	"golang.org/x/crypto/bcrypt"
 	"steam-game-control/internal/utils"
 )
 
-func TestLoginSuccess(t *testing.T) {
+func hashPasswordSHA512(pw string) string {
+	return fmt.Sprintf("%x", sha512.Sum512([]byte(pw)))
+}
+
+func hashPasswordBcrypt(pw string) string {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
+	if err != nil {
+		panic(err)
+	}
+	return string(bytes)
+}
+
+func TestLoginSuccessSHA512(t *testing.T) {
 	users := []UserInfo{
-		{Username: "admin", PasswordHash: hashPassword("admin123"), IsAdmin: true},
-		{Username: "operator", PasswordHash: hashPassword("op456"), IsAdmin: false},
+		{Username: "admin", PasswordHash: hashPasswordSHA512("admin123"), PasswordType: "sha512", IsAdmin: true},
+		{Username: "operator", PasswordHash: hashPasswordSHA512("op456"), PasswordType: "sha512", IsAdmin: false},
 	}
 	secret := "test-jwt-secret"
 
@@ -33,10 +46,70 @@ func TestLoginSuccess(t *testing.T) {
 	}
 }
 
+func TestLoginSuccessSHA512DefaultType(t *testing.T) {
+	users := []UserInfo{
+		{Username: "admin", PasswordHash: hashPasswordSHA512("admin123"), PasswordType: "", IsAdmin: true},
+	}
+	secret := "test-jwt-secret"
+
+	auth := NewAuthService(users, secret)
+
+	token, user, err := auth.Login("admin", "admin123")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if token == "" {
+		t.Fatal("expected non-empty token")
+	}
+	if user.Username != "admin" {
+		t.Errorf("expected username 'admin', got '%s'", user.Username)
+	}
+}
+
+func TestLoginSuccessBcrypt(t *testing.T) {
+	users := []UserInfo{
+		{Username: "admin", PasswordHash: hashPasswordBcrypt("admin123"), PasswordType: "bcrypt", IsAdmin: true},
+	}
+	secret := "test-jwt-secret"
+
+	auth := NewAuthService(users, secret)
+
+	token, user, err := auth.Login("admin", "admin123")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if token == "" {
+		t.Fatal("expected non-empty token")
+	}
+	if user.Username != "admin" {
+		t.Errorf("expected username 'admin', got '%s'", user.Username)
+	}
+}
+
+func TestLoginSuccessPlain(t *testing.T) {
+	users := []UserInfo{
+		{Username: "admin", PasswordHash: "admin123", PasswordType: "plain", IsAdmin: true},
+	}
+	secret := "test-jwt-secret"
+
+	auth := NewAuthService(users, secret)
+
+	token, user, err := auth.Login("admin", "admin123")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if token == "" {
+		t.Fatal("expected non-empty token")
+	}
+	if user.Username != "admin" {
+		t.Errorf("expected username 'admin', got '%s'", user.Username)
+	}
+}
+
 func TestLoginSuccessOperator(t *testing.T) {
 	users := []UserInfo{
-		{Username: "admin", PasswordHash: hashPassword("admin123"), IsAdmin: true},
-		{Username: "operator", PasswordHash: hashPassword("op456"), IsAdmin: false},
+		{Username: "admin", PasswordHash: hashPasswordSHA512("admin123"), PasswordType: "sha512", IsAdmin: true},
+		{Username: "operator", PasswordHash: hashPasswordSHA512("op456"), PasswordType: "sha512", IsAdmin: false},
 	}
 	secret := "test-jwt-secret"
 
@@ -51,9 +124,37 @@ func TestLoginSuccessOperator(t *testing.T) {
 	}
 }
 
-func TestLoginWrongPassword(t *testing.T) {
+func TestLoginWrongPasswordSHA512(t *testing.T) {
 	users := []UserInfo{
-		{Username: "admin", PasswordHash: hashPassword("admin123"), IsAdmin: true},
+		{Username: "admin", PasswordHash: hashPasswordSHA512("admin123"), PasswordType: "sha512", IsAdmin: true},
+	}
+	secret := "test-jwt-secret"
+
+	auth := NewAuthService(users, secret)
+
+	_, _, err := auth.Login("admin", "wrongpassword")
+	if err == nil {
+		t.Fatal("expected error for wrong password, got nil")
+	}
+}
+
+func TestLoginWrongPasswordBcrypt(t *testing.T) {
+	users := []UserInfo{
+		{Username: "admin", PasswordHash: hashPasswordBcrypt("admin123"), PasswordType: "bcrypt", IsAdmin: true},
+	}
+	secret := "test-jwt-secret"
+
+	auth := NewAuthService(users, secret)
+
+	_, _, err := auth.Login("admin", "wrongpassword")
+	if err == nil {
+		t.Fatal("expected error for wrong password, got nil")
+	}
+}
+
+func TestLoginWrongPasswordPlain(t *testing.T) {
+	users := []UserInfo{
+		{Username: "admin", PasswordHash: "admin123", PasswordType: "plain", IsAdmin: true},
 	}
 	secret := "test-jwt-secret"
 
@@ -67,7 +168,7 @@ func TestLoginWrongPassword(t *testing.T) {
 
 func TestLoginWrongUsername(t *testing.T) {
 	users := []UserInfo{
-		{Username: "admin", PasswordHash: hashPassword("admin123"), IsAdmin: true},
+		{Username: "admin", PasswordHash: hashPasswordSHA512("admin123"), PasswordType: "sha512", IsAdmin: true},
 	}
 	secret := "test-jwt-secret"
 
@@ -81,7 +182,7 @@ func TestLoginWrongUsername(t *testing.T) {
 
 func TestLoginEmptyPassword(t *testing.T) {
 	users := []UserInfo{
-		{Username: "admin", PasswordHash: hashPassword(""), IsAdmin: true},
+		{Username: "admin", PasswordHash: hashPasswordSHA512(""), PasswordType: "sha512", IsAdmin: true},
 	}
 	secret := "test-jwt-secret"
 
@@ -93,9 +194,23 @@ func TestLoginEmptyPassword(t *testing.T) {
 	}
 }
 
+func TestLoginInvalidPasswordType(t *testing.T) {
+	users := []UserInfo{
+		{Username: "admin", PasswordHash: "somehash", PasswordType: "invalid_type", IsAdmin: true},
+	}
+	secret := "test-jwt-secret"
+
+	auth := NewAuthService(users, secret)
+
+	_, _, err := auth.Login("admin", "anypassword")
+	if err == nil {
+		t.Fatal("expected error for invalid password type, got nil")
+	}
+}
+
 func TestTokenIsValidAgainstUtils(t *testing.T) {
 	users := []UserInfo{
-		{Username: "admin", PasswordHash: hashPassword("admin123"), IsAdmin: true},
+		{Username: "admin", PasswordHash: hashPasswordSHA512("admin123"), PasswordType: "sha512", IsAdmin: true},
 	}
 	secret := "my-jwt-secret"
 
@@ -117,7 +232,7 @@ func TestTokenIsValidAgainstUtils(t *testing.T) {
 
 func TestTokenFailsWithWrongSecret(t *testing.T) {
 	users := []UserInfo{
-		{Username: "admin", PasswordHash: hashPassword("admin123"), IsAdmin: true},
+		{Username: "admin", PasswordHash: hashPasswordSHA512("admin123"), PasswordType: "sha512", IsAdmin: true},
 	}
 	secret := "my-jwt-secret"
 
@@ -145,7 +260,7 @@ func TestEmptyUsers(t *testing.T) {
 
 func TestLoginReturnsValidJWTFormat(t *testing.T) {
 	users := []UserInfo{
-		{Username: "testuser", PasswordHash: hashPassword("testpass"), IsAdmin: false},
+		{Username: "testuser", PasswordHash: hashPasswordSHA512("testpass"), PasswordType: "sha512", IsAdmin: false},
 	}
 	secret := "test-secret"
 
@@ -160,8 +275,4 @@ func TestLoginReturnsValidJWTFormat(t *testing.T) {
 	if len(parts) != 3 {
 		t.Errorf("expected JWT token with 3 parts, got %d", len(parts))
 	}
-}
-
-func hashPassword(pw string) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(pw)))
 }
