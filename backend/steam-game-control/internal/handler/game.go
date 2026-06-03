@@ -126,6 +126,30 @@ func (h *GameHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *GameHandler) GetGameStatus(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	gameName := vars["game"]
+
+	status, err := h.gameService.GetGameStatus(gameName)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get game status: %v", err))
+		return
+	}
+
+	if status == "" {
+		status = "not-found"
+	}
+
+	WriteJSON(w, http.StatusOK, CommonResponse{
+		Success: true,
+		Message: "Game status retrieved",
+		Data: map[string]string{
+			"status": status,
+			"game":   gameName,
+		},
+	})
+}
+
 func AuthRequired(secretKey string) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

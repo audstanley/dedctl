@@ -44,26 +44,3 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 }
-
-func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	var req RegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-
-	err := h.authService.Register(req.Username, req.Password, req.IsAdmin)
-	if err != nil {
-		if err.Error() == "user already exists" {
-			WriteError(w, http.StatusConflict, "User already exists")
-			return
-		}
-		WriteError(w, http.StatusInternalServerError, "Failed to register user")
-		return
-	}
-
-	WriteJSON(w, http.StatusCreated, CommonResponse{
-		Success: true,
-		Message: "User registered successfully",
-	})
-}

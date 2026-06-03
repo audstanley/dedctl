@@ -35,21 +35,21 @@ audstanley-games/
 
 The backend provides REST API endpoints for game server control:
 
-- **Authentication**: JWT-based login/register
-- **Game Control**: Start/stop/restart Steam game servers
+- **Authentication**: JWT-based login (config-file users)
+- **Game Control**: Start/stop/restart/status Steam game servers
 - **Log Streaming**: Real-time log viewing via Server-Sent Events
 - **User Management**: Multiple user accounts with admin support
 
 ### API Endpoints
 
 ```
-POST   /auth/login           # User authentication
-POST   /auth/register        # User registration  
-GET    /games                # List available games (auth required)
-POST   /games/{game}/start   # Start game server (auth required)
-POST   /games/{game}/stop    # Stop game server (auth required)
-POST   /games/{game}/restart # Restart game server (auth required)
-GET    /games/{game}/logs    # Stream logs via SSE (auth required)
+POST   /auth/login               # User authentication
+GET    /games                    # List available games (auth required)
+GET    /games/{game}/status      # Get game server status (auth required)
+POST   /games/{game}/start       # Start game server (auth required)
+POST   /games/{game}/stop        # Stop game server (auth required)
+POST   /games/{game}/restart     # Restart game server (auth required)
+GET    /games/{game}/logs        # Stream logs via SSE (auth required)
 ```
 
 ### Running the Backend
@@ -66,7 +66,7 @@ Server runs on `http://localhost:8080` by default.
 
 The frontend provides a web dashboard for managing game servers:
 
-- **Login/Register**: User authentication interface
+- **Login**: User authentication interface
 - **Dashboard**: View all available game servers
 - **Game Controls**: Start/stop/restart servers from UI
 - **Log Viewer**: Real-time log streaming
@@ -90,7 +90,7 @@ Frontend runs on `http://localhost:5174` by default.
 - Viper (Configuration)
 - JWT (Authentication)
 - go-systemd (systemctl integration)
-- LevelDB (User storage)
+- Config-file based users with SHA-256 hashed passwords
 
 ### Frontend
 - SvelteKit
@@ -108,6 +108,8 @@ Frontend runs on `http://localhost:5174` by default.
 ✅ **Phase 6**: Game list dashboard
 ✅ **Phase 7**: Game detail page with controls
 ✅ **Phase 8**: Real-time log viewer with SSE
+✅ **Phase 9**: Flowbite Svelte component integration
+✅ **Phase 10**: Auth refactor (config-file users, removed registration), bug fixes, unit tests, real game status endpoint
 
 ## License
 

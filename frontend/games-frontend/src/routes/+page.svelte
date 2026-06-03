@@ -85,12 +85,6 @@
           Sign in
         {/if}
       </Button>
-
-      <div class="text-center">
-        <a href="/register" class="font-medium text-blue-400 hover:text-blue-300 text-sm">
-          Create an account
-        </a>
-      </div>
     </form>
   </div>
 </div>

@@ -44,13 +44,18 @@ func Run() error {
 	}
 
 	// Initialize services
-	userService, err := service.NewUserService()
-	if err != nil {
-		return fmt.Errorf("failed to create user service: %v", err)
-	}
 	gameService := service.NewGameService()
-	authService := service.NewAuthService(userService)
-	defer userService.Close()
+
+	var users []service.UserInfo
+	for _, u := range cfg.Users {
+		users = append(users, service.UserInfo{
+			Username:     u.Username,
+			PasswordHash: u.PasswordHash,
+			IsAdmin:      u.IsAdmin,
+		})
+	}
+
+	authService := service.NewAuthService(users, cfg.JWT.SecretKey)
 
 	// Initialize handlers
 	gameHandler := handler.NewGameHandler(gameService)
@@ -61,7 +66,6 @@ func Run() error {
 
 	// Auth routes (no auth required)
 	r.HandleFunc("/auth/login", authHandler.Login).Methods("POST")
-	r.HandleFunc("/auth/register", authHandler.Register).Methods("POST")
 
 	// Game routes (with auth middleware)
 	gameRouter := r.PathPrefix("/games").Subrouter()
@@ -71,6 +75,7 @@ func Run() error {
 	gameRouter.HandleFunc("/{game}/stop", gameHandler.StopGame).Methods("POST")
 	gameRouter.HandleFunc("/{game}/restart", gameHandler.RestartGame).Methods("POST")
 	gameRouter.HandleFunc("/{game}/logs", gameHandler.StreamLogs).Methods("GET")
+	gameRouter.HandleFunc("/{game}/status", gameHandler.GetGameStatus).Methods("GET")
 
 	// Start server
 	server := &http.Server{

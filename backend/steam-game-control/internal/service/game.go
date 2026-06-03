@@ -122,7 +122,7 @@ func (s *GameService) StreamLogs(gameName string, callback func(string)) error {
 				}
 
 				// Format and send the log entry
-				logLine := fmt.Sprintf("[%s] %s", entry.RealtimeTimestamp, entry.Fields["MESSAGE"])
+				logLine := fmt.Sprintf("[%d] %s", entry.RealtimeTimestamp, entry.Fields["MESSAGE"])
 				callback(logLine)
 			}
 		case sdjournal.SD_JOURNAL_NOP:

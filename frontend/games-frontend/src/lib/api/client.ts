@@ -9,12 +9,6 @@ type LoginRequest = {
   password: string;
 };
 
-type RegisterRequest = {
-  username: string;
-  password: string;
-  is_admin: boolean;
-};
-
 type User = {
   username: string;
   is_admin: boolean;
@@ -74,13 +68,6 @@ class ApiClient {
     });
   }
 
-  async register(username: string, password: string, isAdmin: boolean): Promise<CommonResponse> {
-    return this.request<CommonResponse>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ username, password, is_admin: isAdmin }),
-    });
-  }
-
   async listGames(): Promise<GameResponse> {
     return this.request<GameResponse>('/games');
   }
@@ -100,6 +87,12 @@ class ApiClient {
   async restartGame(gameName: string): Promise<ControlResponse> {
     return this.request<CommonResponse & { data: ControlResponse }>(`/games/${gameName}/restart`, {
       method: 'POST',
+    });
+  }
+
+  async getGameStatus(gameName: string): Promise<ControlResponse> {
+    return this.request<CommonResponse & { data: ControlResponse }>(`/games/${gameName}/status`, {
+      method: 'GET',
     });
   }
 

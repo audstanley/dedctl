@@ -13,13 +13,13 @@
   let reconnectCount = $state(0);
   let maxRetries = $state(5);
 
+  let scrollContainer: HTMLDivElement | null = null;
+
   $effect(() => {
     if (autoScroll) {
       scrollContainer?.scrollTo(0, scrollContainer.scrollHeight);
     }
   });
-
-  let scrollContainer: HTMLDivElement | null = null;
 
   function connect() {
     if (eventSource) {

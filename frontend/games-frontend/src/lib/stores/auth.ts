@@ -84,15 +84,6 @@ export const auth = {
     }
   },
 
-  async register(username: string, password: string, isAdmin: boolean) {
-    try {
-      await api.register(username, password, isAdmin);
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  },
-
   logout() {
     store.set({ token: null, user: null });
     localStorage.removeItem(tokenKey);
@@ -110,4 +101,4 @@ export const auth = {
 
 // Export both the store and the auth functions
 export { store as authStore };
-export const { getToken, getUser, isAuthenticated, setToken, setUser, login, register, logout, requireAuth } = auth;
+export const { getToken, getUser, isAuthenticated, setToken, setUser, login, logout, requireAuth } = auth;

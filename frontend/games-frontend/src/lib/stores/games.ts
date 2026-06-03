@@ -1,4 +1,5 @@
 import { writable, type Writable } from 'svelte/store';
+import { api } from '$lib/api/client';
 
 type GameStatus = 'active' | 'inactive' | 'not-found' | string;
 
@@ -45,7 +46,13 @@ class GamesStore {
     if (!games.includes(gameName)) {
       return 'not-found';
     }
-    return 'active';
+    try {
+      const res = await api.getGameStatus(gameName);
+      const status = res.status;
+      return status === 'active' ? 'active' : 'inactive';
+    } catch {
+      return 'inactive';
+    }
   }
 
   async startGame(gameName: string): Promise<{ success: boolean; error?: string }> {

@@ -29,7 +29,7 @@
   <div class="flex items-center justify-between">
     <h1 class="text-3xl font-bold text-white">Game Servers</h1>
     <button
-      onclick={() => onMount(async () => await gamesStore.fetchGames())}
+      onclick={() => gamesStore.fetchGames()}
       disabled={loading}
       class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-4 py-2 rounded transition"
     >

@@ -11,25 +11,23 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	JWT      JWTConfig      `mapstructure:"jwt"`
-	Game     GameConfig     `mapstructure:"game"`
+	Server ServerConfig   `mapstructure:"server"`
+	JWT    JWTConfig      `mapstructure:"jwt"`
+	Game   GameConfig     `mapstructure:"game"`
+	Users  []UserConfig   `mapstructure:"users"`
+}
+
+// UserConfig holds a single user's credentials
+type UserConfig struct {
+	Username    string `mapstructure:"username"`
+	PasswordHash string `mapstructure:"password_hash"`
+	IsAdmin     bool   `mapstructure:"is_admin"`
 }
 
 // ServerConfig holds server configuration
 type ServerConfig struct {
 	Port string `mapstructure:"port"`
 	Host string `mapstructure:"host"`
-}
-
-// DatabaseConfig holds database configuration
-type DatabaseConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     string `mapstructure:"port"`
-	Name     string `mapstructure:"name"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
 }
 
 // JWTConfig holds JWT configuration
@@ -55,6 +53,9 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("server.host", "localhost")
 	viper.SetDefault("game.base_path", "$HOME/Games")
+	viper.SetDefault("users", []UserConfig{
+		{Username: "admin", PasswordHash: "", IsAdmin: true},
+	})
 
 	// Read config
 	if err := viper.ReadInConfig(); err != nil {

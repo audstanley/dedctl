@@ -54,8 +54,7 @@ A full-stack game server management platform with a Go backend and Svelte fronte
   - Always-visible navbar using Flowbite Navbar component
   - User display with admin badge
   - Logout button
-  - Protected routes for authenticated pages
-- Implemented proper auth guards
+- Client-side auth guard on `/dashboard` routes only
 
 **Commit:** `21bb6f4` - Create dashboard layout with navigation and auth display
 
@@ -64,9 +63,8 @@ A full-stack game server management platform with a Go backend and Svelte fronte
 - Grid layout with responsive design (1-3 columns)
 - Game cards with:
   - Game name display
-  - Status badges (Ready/Active/Inactive)
+  - Status badges (static - not dynamically updated)
   - Click to navigate to game detail
-  - Refresh functionality
 - Empty state handling
 
 **Commit:** `22806fa` - Create game list dashboard with grid layout
@@ -98,16 +96,18 @@ A full-stack game server management platform with a Go backend and Svelte fronte
 **Commit:** `f48d66b` - Implement real-time log viewer with SSE streaming
 
 ### Phase 9: Flowbite Svelte Integration ✅
-- **Proper Flowbite Components Used:**
-  - `Alert` - Error/success notifications with dismissable functionality
-  - `Button` - Primary actions with color variants
-  - `Input` - Form inputs with proper styling
-  - `Label` - Form field labels
-  - `Card` - Game server display cards
-  - `Badge` - Status indicators
-  - `Navbar` - Navigation bar with responsive design
-  
-- **Design Implementation:**
+- **Flowbite Components Used:**
+  - `Alert` - Error/success notifications with dismissable functionality (login page, dashboard)
+  - `Button` - Primary actions with color variants (login page, layout)
+  - `Input` - Form inputs with proper styling (login page)
+  - `Label` - Form field labels (login page)
+  - `Card` - Game server display cards (dashboard)
+  - `Badge` - Status indicators (dashboard)
+  - `Navbar` - Navigation bar with responsive design (layout)
+
+- **Mixed UI Approach:**
+  - Login page, dashboard, and layout use Flowbite Svelte components
+  - Register page and game detail page use raw HTML elements with Tailwind CSS classes
   - Blue accent color throughout (primary theme)
   - Compact spacing (reduced margins/padding)
   - Subtle alerts (border-based styling)
@@ -140,6 +140,24 @@ A full-stack game server management platform with a Go backend and Svelte fronte
 
 **Commit:** `6644f02` - Add Makefile with build and run commands
 
+### Phase 10: Auth Refactor & Bug Fixes ✅
+- **Removed LevelDB** — switched to config-file based users with pre-hashed SHA-256 passwords
+- **Removed user registration** entirely (backend handler, frontend API client, auth store method, login page link, register route/page)
+- **Added real game status endpoint** — `GET /games/{game}/status` now queries actual system service state
+- **Fixed known bugs:**
+  - `games.ts` now properly imports `api` from `$lib/api/client`
+  - Dashboard refresh button no longer misuses `onMount`
+  - Added auth guard on `/games` routes via new `+layout.svelte`
+  - Log viewer variable ordering fixed (`scrollContainer` declared before `$effect`)
+- **Added unit tests:**
+  - `internal/handler/auth_test.go` — Auth middleware tests
+  - `internal/service/auth_test.go` — Auth service login tests
+  - `internal/utils/jwt_test.go` — JWT generation and validation tests
+- **UI consistency** — game detail page (`/games/[name]`) now uses Flowbite Svelte components (`Alert`, `Badge`, `Button`)
+- **Dependency cleanup** — removed LevelDB/snappy, promoted JWT/gorilla/cobra/viper to direct dependencies
+
+**Status:** Pending commit (uncommitted changes)
+
 ---
 
 ## Technology Stack
@@ -151,12 +169,12 @@ A full-stack game server management platform with a Go backend and Svelte fronte
 - **Config:** Viper
 - **Auth:** JWT (golang-jwt/jwt v5)
 - **System:** go-systemd (systemctl integration)
-- **Database:** LevelDB
 - **Features:**
   - RESTful API endpoints
   - Real-time log streaming via SSE
   - User management with JWT
   - Game server control via systemctl
+  - Server-side auth middleware on game endpoints
 
 ### Frontend (Svelte)
 - **Framework:** SvelteKit 2.x
@@ -169,7 +187,6 @@ A full-stack game server management platform with a Go backend and Svelte fronte
   - Dark mode
   - Real-time log streaming (EventSource API)
   - Form validation
-  - Protected routes
   - Modern/minimal design
 
 ---
@@ -211,10 +228,15 @@ audstanley-games/
 │       │   └── routes/            # Page routes
 │       │       ├── +layout.svelte # Root layout
 │       │       ├── +page.svelte   # Login page
-│       │       ├── register/      # Registration page
-│       │       └── dashboard/     # Dashboard pages
+│       │       ├── dashboard/     # Dashboard pages
+│       │       │   ├── +layout.svelte
+│       │       │   └── +page.svelte
+│       │       └── games/         # Game detail, logs, and auth guard
 │       │           ├── +layout.svelte
-│       │           └── +page.svelte
+│       │           └── [name]/
+│       │               ├── +page.svelte
+│       │               └── logs/
+│       │                   └── +page.svelte
 │       ├── static/                # Static assets
 │       ├── svelte.config.js       # Svelte config
 │       ├── vite.config.ts         # Vite config
@@ -232,10 +254,10 @@ audstanley-games/
 
 ### Authentication (Public)
 - `POST /auth/login` - User authentication
-- `POST /auth/register` - User registration
 
 ### Game Control (Requires Auth)
 - `GET /games` - List available games
+- `GET /games/{game}/status` - Get game server status
 - `POST /games/{game}/start` - Start game server
 - `POST /games/{game}/stop` - Stop game server
 - `POST /games/{game}/restart` - Restart game server
@@ -303,14 +325,14 @@ npm run dev -- --host 0.0.0.0
 
 ### Authentication
 - JWT-based authentication
-- Secure password handling
+- Config-file based users with SHA-256 hashed passwords
 - User session persistence
 - Admin role support
+- Server-side JWT middleware on game endpoints
 
 ### Game Management
 - View all available game servers
 - Start/stop/restart servers
-- Real-time status updates
 - Individual game control pages
 
 ### Log Streaming
@@ -321,7 +343,7 @@ npm run dev -- --host 0.0.0.0
 
 ### UI/UX
 - Modern/minimal design
-- Flowbite Svelte components
+- Mixed UI with Flowbite Svelte components and Tailwind CSS
 - Dark theme support
 - Responsive layout
 - Blue accent color
@@ -345,18 +367,27 @@ npm run dev -- --host 0.0.0.0
 9. `0986a76` - Apply modern/minimal UI with Flowbite integration
 10. `8b52130` - Properly integrate Flowbite Svelte components
 11. `6644f02` - Add Makefile with build and run commands
+12. *(pending)* - Auth refactor: remove LevelDB, config-based users, tests, bug fixes
 
-**Total:** 11 commits, 11 files changed
+**Total:** 16 commits total (11 documented above, 5 additional UI and configuration commits) + pending uncommitted changes
+
+---
+
+## Known Issues
+
+1. **Game status endpoint may not reflect actual service state**: The new `GET /games/{game}/status` endpoint queries systemd, but status accuracy depends on proper systemd service configuration for each game.
+
+2. **No user self-registration**: Registration was removed. New users must be added manually to the config file with a pre-hashed password.
 
 ---
 
 ## Next Steps (Optional Enhancements)
 
-1. **Password Hashing**: Implement bcrypt for password security
-2. **Unit Tests**: Add tests for services and handlers
-3. **API Documentation**: Add OpenAPI/Swagger specs
-4. **Deployment**: Docker containers, CI/CD pipeline
-5. **Environment Variables**: Secure configuration management
+1. **Password Hashing**: Upgrade from SHA-256 to bcrypt for stronger password security in config
+2. **API Documentation**: Add OpenAPI/Swagger specs
+3. **Deployment**: Docker containers, CI/CD pipeline
+4. **Environment Variables**: Secure configuration management (secrets out of config file)
+5. **Further Testing**: Add integration and end-to-end tests
 6. **Additional Games**: Expand game list dynamically
 7. **Multi-server Support**: Manage multiple game server instances
 8. **Analytics**: Add usage metrics and monitoring
@@ -365,11 +396,14 @@ npm run dev -- --host 0.0.0.0
 
 ## Summary
 
-✅ **11 phases completed successfully**
-✅ **Full-stack application functional**
-✅ **Modern UI with Flowbite Svelte components**
+✅ **Core features implemented**
+✅ **Mixed UI with Flowbite Svelte components and Tailwind CSS**
 ✅ **Clean architecture with proper separation**
 ✅ **Automated build/run with Makefile**
 ✅ **Comprehensive documentation**
+✅ **Unit tests for auth, handlers, and JWT utilities**
+✅ **Real game status via systemd integration**
 
-The game server control platform is now ready for use with a modern, responsive, and user-friendly interface!
+⚠️ **Minor known issues remain** - see Known Issues section
+
+The game server control platform has a solid foundation with authentication, game management UI, log streaming, and a growing test suite. Config-file based user management replaces the earlier LevelDB approach, and several previously known bugs have been resolved.
