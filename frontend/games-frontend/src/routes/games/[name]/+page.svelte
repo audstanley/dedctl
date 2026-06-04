@@ -10,11 +10,11 @@
   let error = $state('');
 
   onMount(async () => {
-    await gamesStore.fetchGames();
     const games = gamesStore.getGames();
-    if (games.includes(name)) {
-      gameStatus = await gamesStore.updateGameStatus(name);
+    if (!games.includes(name)) {
+      await gamesStore.fetchGames();
     }
+    gameStatus = await gamesStore.updateGameStatus(name);
     loading = false;
   });
 

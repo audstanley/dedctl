@@ -27,7 +27,7 @@ func (h *GameHandler) ListGames(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-if games == nil {
+	if games == nil {
 		games = []string{}
 	}
 
@@ -98,6 +98,13 @@ func (h *GameHandler) RestartGame(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func escapeSSEData(data string) string {
+	data = strings.ReplaceAll(data, "\\", "\\\\")
+	data = strings.ReplaceAll(data, "\n", "\\n")
+	data = strings.ReplaceAll(data, "\r", "\\r")
+	return data
+}
+
 func (h *GameHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	gameName := vars["game"]
@@ -105,7 +112,6 @@ func (h *GameHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -113,16 +119,28 @@ func (h *GameHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
+
 	sendLog := func(logLine string) {
-		fmt.Fprintf(w, "data: %s\n\n", logLine)
-		flusher.Flush()
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			escaped := escapeSSEData(logLine)
+			fmt.Fprintf(w, "data: %s\n\n", escaped)
+			flusher.Flush()
+		}
 	}
 
-	err := h.gameBackend.StreamLogs(gameName, sendLog)
+	err := h.gameBackend.StreamLogs(r.Context(), gameName, sendLog)
 	if err != nil {
-		fmt.Fprintf(w, "data: %s\n\n", err.Error())
-		flusher.Flush()
-		return
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			fmt.Fprintf(w, "data: %s\n\n", escapeSSEData(err.Error()))
+			flusher.Flush()
+		}
 	}
 }
 

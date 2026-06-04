@@ -1,22 +1,30 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { getUser, logout, type User } from '$lib/stores/auth';
-  import { Navbar, Button } from 'flowbite-svelte';
+  import { auth, type User } from '$lib/stores/auth';
+  import { Navbar, NavContainer, Button } from 'flowbite-svelte';
 
   let { children } = $props();
-  let currentUser = $state<User | null>(getUser());
+  let currentUser = $state<User | null>(auth.getUser());
+
+  $effect(() => {
+    return auth.subscribe(() => {
+      currentUser = auth.getUser();
+    });
+  });
 
   function handleLogout() {
-    logout();
+    auth.logout();
     goto('/');
   }
 </script>
 
 <div class="min-h-screen bg-gray-900">
 	<Navbar class="bg-gray-800 shadow-lg">
-		<Navbar.Brand href="/dashboard">
-			Game Server Control
-		</Navbar.Brand>
+		<NavContainer>
+			<a href="/dashboard" class="text-white text-xl font-bold hover:text-blue-400 transition">
+				Game Server Control
+			</a>
+		</NavContainer>
 		<div class="flex items-center">
 			{#if currentUser}
 				<div class="hidden md:block mr-4 text-gray-300 text-sm flex items-center">

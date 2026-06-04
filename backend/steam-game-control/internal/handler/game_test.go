@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha512"
 	"encoding/json"
 	"errors"
@@ -23,7 +24,7 @@ type mockGameBackend struct {
 	stopGameFunc      func(name string) error
 	restartGameFunc   func(name string) error
 	getGameStatusFunc func(name string) (string, error)
-	streamLogsFunc    func(name string, callback func(string)) error
+	streamLogsFunc    func(ctx context.Context, name string, callback func(string)) error
 }
 
 func (m *mockGameBackend) ListGames() ([]string, error) {
@@ -46,8 +47,8 @@ func (m *mockGameBackend) GetGameStatus(name string) (string, error) {
 	return m.getGameStatusFunc(name)
 }
 
-func (m *mockGameBackend) StreamLogs(name string, callback func(string)) error {
-	return m.streamLogsFunc(name, callback)
+func (m *mockGameBackend) StreamLogs(ctx context.Context, name string, callback func(string)) error {
+	return m.streamLogsFunc(ctx, name, callback)
 }
 
 func setupGameRouter(handler *GameHandler) *mux.Router {
@@ -358,7 +359,7 @@ func TestGetGameStatusError(t *testing.T) {
 
 func TestStreamLogsSuccess(t *testing.T) {
 	backend := &mockGameBackend{
-		streamLogsFunc: func(name string, callback func(string)) error {
+		streamLogsFunc: func(ctx context.Context, name string, callback func(string)) error {
 			callback("[1234567890] Server started")
 			callback("[1234567891] Map changed to de_dust2")
 			return nil
@@ -391,7 +392,7 @@ func TestStreamLogsSuccess(t *testing.T) {
 
 func TestStreamLogsError(t *testing.T) {
 	backend := &mockGameBackend{
-		streamLogsFunc: func(name string, callback func(string)) error {
+		streamLogsFunc: func(ctx context.Context, name string, callback func(string)) error {
 			return errors.New("journal open failed")
 		},
 	}

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -17,7 +18,7 @@ type GameBackend interface {
 	StopGame(name string) error
 	RestartGame(name string) error
 	GetGameStatus(name string) (string, error)
-	StreamLogs(name string, callback func(string)) error
+	StreamLogs(ctx context.Context, name string, callback func(string)) error
 }
 
 // dbusConn abstracts the D-Bus connection for testability
@@ -35,7 +36,7 @@ type GameService struct {
 
 // NewGameService creates a new GameService connected to systemd D-Bus
 func NewGameService() *GameService {
-	conn, err := dbus.New()
+	conn, err := dbus.NewUserConnection()
 	if err != nil {
 		panic(err)
 	}
@@ -118,7 +119,7 @@ func (s *GameService) GetGameStatus(gameName string) (string, error) {
 }
 
 // StreamLogs streams real-time logs from the systemd journal
-func (s *GameService) StreamLogs(gameName string, callback func(string)) error {
+func (s *GameService) StreamLogs(ctx context.Context, gameName string, callback func(string)) error {
 	journal, err := sdjournal.NewJournal()
 	if err != nil {
 		return err
@@ -131,6 +132,12 @@ func (s *GameService) StreamLogs(gameName string, callback func(string)) error {
 	journal.SeekTail()
 
 	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+
 		status := journal.Wait(time.Second)
 
 		switch status {
@@ -149,7 +156,12 @@ func (s *GameService) StreamLogs(gameName string, callback func(string)) error {
 					continue
 				}
 
-				logLine := fmt.Sprintf("[%d] %s", entry.RealtimeTimestamp, entry.Fields["MESSAGE"])
+				msg, ok := entry.Fields["MESSAGE"]
+				if !ok {
+					continue
+				}
+
+				logLine := fmt.Sprintf("[%d] %s", entry.RealtimeTimestamp, msg)
 				callback(logLine)
 			}
 		case sdjournal.SD_JOURNAL_NOP:
@@ -196,12 +208,12 @@ func (m *dbusMock) RestartUnit(name string, mode string, ch chan<- string) (int,
 
 // MockGameBackend is a test double for GameBackend
 type MockGameBackend struct {
-	ListGamesFunc    func() ([]string, error)
-	StartGameFunc    func(name string) error
-	StopGameFunc     func(name string) error
-	RestartGameFunc  func(name string) error
-	GetGameStatusFunc func(name string) (string, error)
-	StreamLogsFunc   func(name string, callback func(string)) error
+	ListGamesFunc       func() ([]string, error)
+	StartGameFunc       func(name string) error
+	StopGameFunc        func(name string) error
+	RestartGameFunc     func(name string) error
+	GetGameStatusFunc   func(name string) (string, error)
+	StreamLogsFunc      func(ctx context.Context, name string, callback func(string)) error
 }
 
 // ListGames implements GameBackend
@@ -230,6 +242,6 @@ func (m *MockGameBackend) GetGameStatus(name string) (string, error) {
 }
 
 // StreamLogs implements GameBackend
-func (m *MockGameBackend) StreamLogs(name string, callback func(string)) error {
-	return m.StreamLogsFunc(name, callback)
+func (m *MockGameBackend) StreamLogs(ctx context.Context, name string, callback func(string)) error {
+	return m.StreamLogsFunc(ctx, name, callback)
 }

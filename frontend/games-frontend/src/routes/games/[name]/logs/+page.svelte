@@ -1,6 +1,5 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { page } from '$app/stores';
   import { onMount, onDestroy } from 'svelte';
   import { api } from '$lib/api/client';
 
@@ -12,6 +11,7 @@
   let reconnecting = $state(false);
   let reconnectCount = $state(0);
   let maxRetries = $state(5);
+  const MAX_LOGS = 1000;
 
   let scrollContainer: HTMLDivElement | null = null;
 
@@ -20,6 +20,12 @@
       scrollContainer?.scrollTo(0, scrollContainer.scrollHeight);
     }
   });
+
+  function escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
 
   function connect() {
     if (eventSource) {
@@ -37,6 +43,9 @@
 
     source.onmessage = (event) => {
       logs = [...logs, event.data];
+      if (logs.length > MAX_LOGS) {
+        logs = logs.slice(-MAX_LOGS);
+      }
     };
 
     source.onerror = (error) => {
@@ -87,6 +96,9 @@
   function formatTimestamp(timestamp: string): string {
     try {
       const date = new Date(parseInt(timestamp));
+      if (isNaN(date.getTime())) {
+        return timestamp;
+      }
       return date.toLocaleTimeString();
     } catch {
       return timestamp;
@@ -94,8 +106,11 @@
   }
 
   function extractMessage(line: string): string {
-    const match = line.match(/\] (.+)$/);
-    return match ? match[1] : line;
+    const lastBracket = line.lastIndexOf(']');
+    if (lastBracket > 0) {
+      return line.substring(lastBracket + 1).trim();
+    }
+    return line;
   }
 </script>
 
@@ -166,16 +181,16 @@
           <p>No logs yet. Waiting for server output...</p>
         </div>
       {:else}
-        {#each logs as log (log)}
+        {#each logs as log}
           <div class="text-gray-300 hover:bg-gray-750 px-2 py-0.5 rounded">
             <span class="text-blue-400 mr-2">
               {#if log.includes('[') && log.includes(']')}
-                {@html formatTimestamp(extractMessage(log))}
+                {formatTimestamp(extractMessage(log))}
               {:else}
                 -
               {/if}
             </span>
-            {@html extractMessage(log)}
+            {escapeHtml(extractMessage(log))}
           </div>
         {/each}
       {/if}

@@ -1,5 +1,7 @@
-import { writable, type Writable } from 'svelte/store';
+import { writable, type Writable, get } from 'svelte/store';
 import { api } from '$lib/api/client';
+import { logout, isAuthenticated } from '$lib/stores/auth';
+import { goto } from '$app/navigation';
 
 type GameStatus = 'active' | 'inactive' | 'not-found' | string;
 
@@ -12,7 +14,16 @@ class GamesStore {
   private games: Writable<string[]> = writable([]);
   private statuses: Writable<Record<string, GameStatus>> = writable({});
 
-  async fetchGames() {
+  private handleAuthError(): boolean {
+    if (!isAuthenticated()) {
+      logout();
+      goto('/');
+      return true;
+    }
+    return false;
+  }
+
+  async fetchGames(): Promise<{ success: boolean; games?: string[]; error?: string }> {
     try {
       const games = await api.listGames();
       this.games.set(games);
@@ -25,6 +36,9 @@ class GamesStore {
       
       return { success: true, games };
     } catch (error: any) {
+      if (this.handleAuthError()) {
+        return { success: false, error: 'Session expired. Please log in again.' };
+      }
       return { success: false, error: error.message };
     }
   }
@@ -61,6 +75,9 @@ class GamesStore {
       await this.updateGameStatus(gameName);
       return { success: true };
     } catch (error: any) {
+      if (this.handleAuthError()) {
+        return { success: false, error: 'Session expired. Please log in again.' };
+      }
       return { success: false, error: error.message };
     }
   }
@@ -71,6 +88,9 @@ class GamesStore {
       await this.updateGameStatus(gameName);
       return { success: true };
     } catch (error: any) {
+      if (this.handleAuthError()) {
+        return { success: false, error: 'Session expired. Please log in again.' };
+      }
       return { success: false, error: error.message };
     }
   }
@@ -81,6 +101,9 @@ class GamesStore {
       await this.updateGameStatus(gameName);
       return { success: true };
     } catch (error: any) {
+      if (this.handleAuthError()) {
+        return { success: false, error: 'Session expired. Please log in again.' };
+      }
       return { success: false, error: error.message };
     }
   }

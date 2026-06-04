@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -416,7 +417,7 @@ func TestMockGameBackendGetGameStatusError(t *testing.T) {
 func TestMockGameBackendStreamLogs(t *testing.T) {
 	var logs []string
 	mock := &MockGameBackend{
-		StreamLogsFunc: func(name string, callback func(string)) error {
+		StreamLogsFunc: func(ctx context.Context, name string, callback func(string)) error {
 			if name != "csgo" {
 				t.Errorf("expected name 'csgo', got '%s'", name)
 			}
@@ -426,7 +427,7 @@ func TestMockGameBackendStreamLogs(t *testing.T) {
 		},
 	}
 
-	err := mock.StreamLogs("csgo", func(line string) {
+	err := mock.StreamLogs(context.Background(), "csgo", func(line string) {
 		logs = append(logs, line)
 	})
 	if err != nil {
@@ -445,12 +446,12 @@ func TestMockGameBackendStreamLogs(t *testing.T) {
 
 func TestMockGameBackendStreamLogsError(t *testing.T) {
 	mock := &MockGameBackend{
-		StreamLogsFunc: func(name string, callback func(string)) error {
+		StreamLogsFunc: func(ctx context.Context, name string, callback func(string)) error {
 			return errors.New("journal open failed")
 		},
 	}
 
-	err := mock.StreamLogs("csgo", func(line string) {})
+	err := mock.StreamLogs(context.Background(), "csgo", func(line string) {})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
