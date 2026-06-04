@@ -1,6 +1,7 @@
 <script lang="ts">
+  import '../app.css';
   import { goto } from '$app/navigation';
-  import { auth, type User } from '$lib/stores/auth';
+  import { auth, logout, type User } from '$lib/stores/auth';
   import { Navbar, NavContainer, Button } from 'flowbite-svelte';
 
   let { children } = $props();
@@ -13,7 +14,7 @@
   });
 
   function handleLogout() {
-    auth.logout();
+    logout();
     goto('/');
   }
 </script>
