@@ -59,9 +59,14 @@ class ApiClient {
     return data.data;
   }
 
-  async listGames(): Promise<GameResponse> {
-    const response = await this.request<CommonResponse & { data: GameResponse }>('/games');
-    return response.data;
+  async listGames(): Promise<GameInfo[]> {
+    const response = await this.request<CommonResponse & { data: GameInfo[] }>('/games');
+    const data = response.data;
+    // Handle old format: string[] (before GameInfo was introduced)
+    if (data && data.length > 0 && typeof data[0] === 'string') {
+      return (data as unknown as string[]).map(name => ({ name, app_id: 0, order: 0, has_image: false }));
+    }
+    return data as GameInfo[];
   }
 
   async startGame(gameName: string): Promise<ControlResponse> {
@@ -101,6 +106,21 @@ class ApiClient {
 
     return new EventSource(url);
   }
+
+  async updateMetadata(gameName: string, appId: number, order: number): Promise<CommonResponse> {
+    const response = await this.request<CommonResponse & { data: CommonResponse }>(`/games/${gameName}/metadata`, {
+      method: 'PATCH',
+      body: JSON.stringify({ app_id: appId, order }),
+    });
+    return response;
+  }
+
+  async updateArt(gameName: string): Promise<CommonResponse> {
+    const response = await this.request<CommonResponse & { data: CommonResponse }>(`/games/${gameName}/update-art`, {
+      method: 'POST',
+    });
+    return response;
+  }
 }
 
 type CommonResponse = {
@@ -117,7 +137,12 @@ type AuthResponse = {
   };
 };
 
-type GameResponse = string[];
+export type GameInfo = {
+  name: string;
+  app_id: number;
+  order: number;
+  has_image: boolean;
+};
 
 type ControlResponse = {
   status: string;

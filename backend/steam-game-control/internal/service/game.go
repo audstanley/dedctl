@@ -8,17 +8,29 @@ import (
 
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/coreos/go-systemd/v22/sdjournal"
+	"steam-game-control/internal/config"
 )
+
+// GameInfo holds enriched information about a game server.
+type GameInfo struct {
+	Name     string `json:"name"`
+	AppId    int    `json:"app_id"`
+	Order    int    `json:"order"`
+	HasImage bool   `json:"has_image"`
+}
 
 // GameBackend defines the interface for game server operations.
 // Implementations can use systemd D-Bus, mock backends for testing, etc.
 type GameBackend interface {
 	ListGames() ([]string, error)
+	ListGamesWithMeta() ([]GameInfo, error)
 	StartGame(name string) error
 	StopGame(name string) error
 	RestartGame(name string) error
 	GetGameStatus(name string) (string, error)
 	StreamLogs(ctx context.Context, name string, callback func(string)) error
+	UpdateMetadata(name string, appId, order int) error
+	UpdateArt(name string, appId int) error
 }
 
 // dbusConn abstracts the D-Bus connection for testability
@@ -32,6 +44,26 @@ type dbusConn interface {
 // GameService handles game server operations via systemd D-Bus
 type GameService struct {
 	conn dbusConn
+}
+
+// Package-level metadata and image service instances set by the server startup.
+var gameMetadata map[string]struct{ AppId int; Order int }
+var imageService *ImageService
+var imgDir string
+var metaDir string
+var gameMetadataObj *config.Metadata
+
+// SetMetadataAndImages sets the metadata and image service references for use by game operations.
+func SetMetadataAndImages(meta map[string]struct{ AppId int; Order int }, svc *ImageService, dir string) {
+	gameMetadata = meta
+	imageService = svc
+	imgDir = dir
+}
+
+// SetMetaDir sets the metadata directory and metadata object for persistence operations.
+func SetMetaDir(dir string, obj *config.Metadata) {
+	metaDir = dir
+	gameMetadataObj = obj
 }
 
 // NewGameService creates a new GameService connected to systemd D-Bus
@@ -78,6 +110,42 @@ func (s *GameService) ListGames() ([]string, error) {
 	}
 
 	return games, nil
+}
+
+// ListGamesWithMeta returns games with metadata enrichment.
+// The meta and imgDir parameters come from the server startup.
+func (s *GameService) ListGamesWithMeta() ([]GameInfo, error) {
+	units, err := s.conn.ListUnits()
+	if err != nil {
+		return nil, err
+	}
+
+	gameNames := make(map[string]bool)
+	for _, unit := range units {
+		if strings.HasPrefix(unit.Name, "steam-") && strings.HasSuffix(unit.Name, ".service") {
+			gameName := strings.TrimPrefix(strings.TrimSuffix(unit.Name, ".service"), "steam-")
+			gameNames[gameName] = true
+		}
+	}
+
+	var infos []GameInfo
+	for name := range gameNames {
+		gm, exists := gameMetadata[name]
+		appId := 0
+		order := 0
+		if exists {
+			appId = gm.AppId
+			order = gm.Order
+		}
+		infos = append(infos, GameInfo{
+			Name:     name,
+			AppId:    appId,
+			Order:    order,
+			HasImage: appId > 0 && imageService.ImageExists(appId, imgDir),
+		})
+	}
+
+	return infos, nil
 }
 
 // StartGame starts a Steam game server
@@ -127,9 +195,32 @@ func (s *GameService) StreamLogs(ctx context.Context, gameName string, callback 
 	defer journal.Close()
 
 	unitName := fmt.Sprintf("steam-%s.service", gameName)
-	journal.AddMatch(sdjournal.SD_JOURNAL_FIELD_SYSTEMD_UNIT + "=" + unitName)
+journal.AddMatch(sdjournal.SD_JOURNAL_FIELD_SYSTEMD_USER_UNIT + "=" + unitName)
 
-	journal.SeekTail()
+	// Seek to the middle of the journal to avoid blocking on SeekTail
+	journal.SeekHead()
+	for {
+		n, err := journal.Next()
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			break
+		}
+
+		entry, err := journal.GetEntry()
+		if err != nil {
+			continue
+		}
+
+		msg, ok := entry.Fields["MESSAGE"]
+		if !ok {
+			continue
+		}
+
+		logLine := fmt.Sprintf("[%d] %s", entry.RealtimeTimestamp, msg)
+		callback(logLine)
+	}
 
 	for {
 		select {
@@ -167,13 +258,41 @@ func (s *GameService) StreamLogs(ctx context.Context, gameName string, callback 
 		case sdjournal.SD_JOURNAL_NOP:
 			continue
 		case sdjournal.SD_JOURNAL_INVALIDATE:
-			return fmt.Errorf("journal invalidated")
+			continue
 		default:
 			if status < 0 {
 				return fmt.Errorf("error in Wait: %d", status)
 			}
 		}
 	}
+}
+
+// UpdateMetadata updates the AppID and/or order for a game and persists to metadata.yaml.
+func (s *GameService) UpdateMetadata(name string, appId, order int) error {
+	if gameMetadataObj == nil {
+		return fmt.Errorf("metadata not initialized")
+	}
+
+	gm, exists := gameMetadataObj.Games[name]
+	if !exists {
+		gm = config.GameMetadata{}
+	}
+	gm.AppId = appId
+	gm.Order = order
+	gameMetadataObj.Games[name] = gm
+
+	// Update the package-level map too
+	gameMetadata[name] = struct{ AppId int; Order int }{AppId: gm.AppId, Order: gm.Order}
+
+	return config.SaveMetadata(metaDir, gameMetadataObj)
+}
+
+// UpdateArt downloads the game cover image for a single game.
+func (s *GameService) UpdateArt(name string, appId int) error {
+	if imageService == nil || appId <= 0 {
+		return fmt.Errorf("image service not initialized or invalid AppID")
+	}
+	return imageService.DownloadGameImage(appId, imgDir)
 }
 
 // ListUnitsResponse represents a systemd unit for mock testing
@@ -208,17 +327,31 @@ func (m *dbusMock) RestartUnit(name string, mode string, ch chan<- string) (int,
 
 // MockGameBackend is a test double for GameBackend
 type MockGameBackend struct {
-	ListGamesFunc       func() ([]string, error)
-	StartGameFunc       func(name string) error
-	StopGameFunc        func(name string) error
-	RestartGameFunc     func(name string) error
-	GetGameStatusFunc   func(name string) (string, error)
-	StreamLogsFunc      func(ctx context.Context, name string, callback func(string)) error
+	ListGamesFunc           func() ([]string, error)
+	ListGamesWithMetaFunc   func() ([]GameInfo, error)
+	StartGameFunc           func(name string) error
+	StopGameFunc            func(name string) error
+	RestartGameFunc         func(name string) error
+	GetGameStatusFunc       func(name string) (string, error)
+	StreamLogsFunc          func(ctx context.Context, name string, callback func(string)) error
+	UpdateMetadataFunc      func(name string, appId, order int) error
+	UpdateArtFunc           func(name string, appId int) error
 }
 
 // ListGames implements GameBackend
 func (m *MockGameBackend) ListGames() ([]string, error) {
-	return m.ListGamesFunc()
+	if m.ListGamesFunc != nil {
+		return m.ListGamesFunc()
+	}
+	return []string{}, nil
+}
+
+// ListGamesWithMeta implements GameBackend
+func (m *MockGameBackend) ListGamesWithMeta() ([]GameInfo, error) {
+	if m.ListGamesWithMetaFunc != nil {
+		return m.ListGamesWithMetaFunc()
+	}
+	return []GameInfo{}, nil
 }
 
 // StartGame implements GameBackend
@@ -244,4 +377,14 @@ func (m *MockGameBackend) GetGameStatus(name string) (string, error) {
 // StreamLogs implements GameBackend
 func (m *MockGameBackend) StreamLogs(ctx context.Context, name string, callback func(string)) error {
 	return m.StreamLogsFunc(ctx, name, callback)
+}
+
+// UpdateMetadata implements GameBackend
+func (m *MockGameBackend) UpdateMetadata(name string, appId, order int) error {
+	return m.UpdateMetadataFunc(name, appId, order)
+}
+
+// UpdateArt implements GameBackend
+func (m *MockGameBackend) UpdateArt(name string, appId int) error {
+	return m.UpdateArtFunc(name, appId)
 }

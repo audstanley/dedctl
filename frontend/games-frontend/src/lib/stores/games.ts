@@ -1,114 +1,95 @@
-import { writable, type Writable, get } from 'svelte/store';
-import { api } from '$lib/api/client';
-import { logout, isAuthenticated } from '$lib/stores/auth';
+import { writable, get } from 'svelte/store';
 import { goto } from '$app/navigation';
-
-type GameStatus = 'active' | 'inactive' | 'not-found' | string;
+import { auth } from '$lib/stores/auth';
+import { api } from '$lib/api/client';
 
 type GameInfo = {
   name: string;
-  status: GameStatus;
+  app_id: number;
+  order: number;
+  has_image: boolean;
 };
 
+type GameStatus = 'active' | 'inactive' | 'not-found' | string;
+
 class GamesStore {
-  private games: Writable<string[]> = writable([]);
-  private statuses: Writable<Record<string, GameStatus>> = writable({});
+  private games = writable<GameInfo[]>([]);
+  private statuses = writable<Record<string, GameStatus>>({});
 
-  private handleAuthError(): boolean {
-    if (!isAuthenticated()) {
-      logout();
-      goto('/');
-      return true;
-    }
-    return false;
-  }
-
-  async fetchGames(): Promise<{ success: boolean; games?: string[]; error?: string }> {
+  async fetchGames(): Promise<{ success: boolean; games?: GameInfo[]; error?: string }> {
     try {
       const games = await api.listGames();
       this.games.set(games);
-      
-      const statuses: Record<string, GameStatus> = {};
-      games.forEach(game => {
-        statuses[game] = 'not-found';
+      const statusMap: Record<string, GameStatus> = {};
+      games.forEach(g => {
+        statusMap[g.name] = 'not-found';
       });
-      this.statuses.set(statuses);
-      
+      this.statuses.set(statusMap);
       return { success: true, games };
-    } catch (error: any) {
-      if (this.handleAuthError()) {
-        return { success: false, error: 'Session expired. Please log in again.' };
-      }
-      return { success: false, error: error.message };
+    } catch (err) {
+      this.handleAuthError(err);
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to load games' };
     }
   }
 
-  async updateGameStatus(gameName: string): Promise<GameStatus> {
+  async updateGameStatus(gameName: string): Promise<string> {
     try {
       const status = await this.getGameStatus(gameName);
-      const current = get(this.statuses);
-      current[gameName] = status;
-      this.statuses.set(current);
       return status;
-    } catch (error) {
-      return 'error';
+    } catch (err) {
+      this.handleAuthError(err);
+      return 'not-found';
     }
   }
 
-  async getGameStatus(gameName: string): Promise<GameStatus> {
-    const games = get(this.games);
-    if (!games.includes(gameName)) {
-      return 'not-found';
-    }
+  async getGameStatus(gameName: string): Promise<string> {
     try {
-      const res = await api.getGameStatus(gameName);
-      const status = res.status;
-      return status === 'active' ? 'active' : 'inactive';
-    } catch {
-      return 'inactive';
+      const response = await api.getGameStatus(gameName);
+      this.statuses.update(s => {
+        s[gameName] = response.status;
+        return { ...s };
+      });
+      return response.status;
+    } catch (err) {
+      this.handleAuthError(err);
+      return 'not-found';
     }
   }
 
   async startGame(gameName: string): Promise<{ success: boolean; error?: string }> {
     try {
       await api.startGame(gameName);
-      await this.updateGameStatus(gameName);
+      await this.getGameStatus(gameName);
       return { success: true };
-    } catch (error: any) {
-      if (this.handleAuthError()) {
-        return { success: false, error: 'Session expired. Please log in again.' };
-      }
-      return { success: false, error: error.message };
+    } catch (err) {
+      this.handleAuthError(err);
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to start game' };
     }
   }
 
   async stopGame(gameName: string): Promise<{ success: boolean; error?: string }> {
     try {
       await api.stopGame(gameName);
-      await this.updateGameStatus(gameName);
+      await this.getGameStatus(gameName);
       return { success: true };
-    } catch (error: any) {
-      if (this.handleAuthError()) {
-        return { success: false, error: 'Session expired. Please log in again.' };
-      }
-      return { success: false, error: error.message };
+    } catch (err) {
+      this.handleAuthError(err);
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to stop game' };
     }
   }
 
   async restartGame(gameName: string): Promise<{ success: boolean; error?: string }> {
     try {
       await api.restartGame(gameName);
-      await this.updateGameStatus(gameName);
+      await this.getGameStatus(gameName);
       return { success: true };
-    } catch (error: any) {
-      if (this.handleAuthError()) {
-        return { success: false, error: 'Session expired. Please log in again.' };
-      }
-      return { success: false, error: error.message };
+    } catch (err) {
+      this.handleAuthError(err);
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to restart game' };
     }
   }
 
-  getGames() {
+  getGames(): GameInfo[] {
     return get(this.games);
   }
 
@@ -117,13 +98,51 @@ class GamesStore {
     return statuses[gameName] || 'not-found';
   }
 
-  getStatuses() {
+  getStatuses(): Record<string, GameStatus> {
     return get(this.statuses);
   }
 
-  refreshStatuses() {
+  refreshStatuses(): void {
     const games = this.getGames();
-    games.forEach(game => this.updateGameStatus(game));
+    games.forEach(g => this.updateGameStatus(g.name));
+  }
+
+  getGameInfo(name: string): GameInfo | undefined {
+    const games = get(this.games);
+    return games.find(g => g.name === name);
+  }
+
+  getGameNameList(): string[] {
+    return get(this.games).map(g => g.name);
+  }
+
+  private handleAuthError(err: unknown): void {
+    if (err instanceof Error && err.message === 'Authentication required') {
+      auth.logout();
+      goto('/');
+    }
+  }
+
+  async updateMetadata(gameName: string, appId: number, order: number): Promise<{ success: boolean; error?: string }> {
+    try {
+      await api.updateMetadata(gameName, appId, order);
+      await this.fetchGames();
+      return { success: true };
+    } catch (err) {
+      this.handleAuthError(err);
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to update metadata' };
+    }
+  }
+
+  async updateArt(gameName: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await api.updateArt(gameName);
+      await this.fetchGames();
+      return { success: true };
+    } catch (err) {
+      this.handleAuthError(err);
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to update game art' };
+    }
   }
 }
 

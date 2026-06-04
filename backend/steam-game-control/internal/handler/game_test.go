@@ -19,16 +19,27 @@ import (
 )
 
 type mockGameBackend struct {
-	listGamesFunc     func() ([]string, error)
-	startGameFunc     func(name string) error
-	stopGameFunc      func(name string) error
-	restartGameFunc   func(name string) error
-	getGameStatusFunc func(name string) (string, error)
-	streamLogsFunc    func(ctx context.Context, name string, callback func(string)) error
+	listGamesFunc           func() ([]string, error)
+	listGamesWithMetaFunc   func() ([]service.GameInfo, error)
+	startGameFunc           func(name string) error
+	stopGameFunc            func(name string) error
+	restartGameFunc         func(name string) error
+	getGameStatusFunc       func(name string) (string, error)
+	streamLogsFunc          func(ctx context.Context, name string, callback func(string)) error
+	updateMetadataFunc      func(name string, appId, order int) error
+	updateArtFunc           func(name string, appId int) error
 }
 
 func (m *mockGameBackend) ListGames() ([]string, error) {
 	return m.listGamesFunc()
+}
+
+func (m *mockGameBackend) ListGamesWithMeta() ([]service.GameInfo, error) {
+	if m.listGamesWithMetaFunc != nil {
+		return m.listGamesWithMetaFunc()
+	}
+	// Default: return empty
+	return []service.GameInfo{}, nil
 }
 
 func (m *mockGameBackend) StartGame(name string) error {
@@ -51,6 +62,20 @@ func (m *mockGameBackend) StreamLogs(ctx context.Context, name string, callback 
 	return m.streamLogsFunc(ctx, name, callback)
 }
 
+func (m *mockGameBackend) UpdateMetadata(name string, appId, order int) error {
+	if m.updateMetadataFunc != nil {
+		return m.updateMetadataFunc(name, appId, order)
+	}
+	return nil
+}
+
+func (m *mockGameBackend) UpdateArt(name string, appId int) error {
+	if m.updateArtFunc != nil {
+		return m.updateArtFunc(name, appId)
+	}
+	return nil
+}
+
 func setupGameRouter(handler *GameHandler) *mux.Router {
 	r := mux.NewRouter()
 	gameRouter := r.PathPrefix("/games").Subrouter()
@@ -65,8 +90,12 @@ func setupGameRouter(handler *GameHandler) *mux.Router {
 
 func TestListGamesSuccess(t *testing.T) {
 	backend := &mockGameBackend{
-		listGamesFunc: func() ([]string, error) {
-			return []string{"csgo", "rust", "terraria"}, nil
+		listGamesWithMetaFunc: func() ([]service.GameInfo, error) {
+			return []service.GameInfo{
+				{Name: "csgo", AppId: 730, Order: 1, HasImage: true},
+				{Name: "rust", AppId: 252490, Order: 2, HasImage: false},
+				{Name: "terraria", AppId: 105600, Order: 0, HasImage: false},
+			}, nil
 		},
 	}
 	handler := NewGameHandler(backend)
@@ -89,16 +118,26 @@ func TestListGamesSuccess(t *testing.T) {
 	}
 	data, ok := resp.Data.([]interface{})
 	if !ok {
-		t.Fatalf("expected data to be []string, got %T", resp.Data)
+		t.Fatalf("expected data to be []interface{}, got %T", resp.Data)
 	}
 	if len(data) != 3 {
 		t.Errorf("expected 3 games, got %d", len(data))
+	}
+	first := data[0].(map[string]interface{})
+	if first["name"] != "csgo" {
+		t.Errorf("expected name 'csgo', got '%v'", first["name"])
+	}
+	if first["app_id"] != float64(730) {
+		t.Errorf("expected app_id 730, got %v", first["app_id"])
+	}
+	if first["has_image"] != true {
+		t.Error("expected has_image true")
 	}
 }
 
 func TestListGamesError(t *testing.T) {
 	backend := &mockGameBackend{
-		listGamesFunc: func() ([]string, error) {
+		listGamesWithMetaFunc: func() ([]service.GameInfo, error) {
 			return nil, errors.New("dbus error")
 		},
 	}
@@ -114,10 +153,10 @@ func TestListGamesError(t *testing.T) {
 	}
 }
 
-func TestListGamesNil(t *testing.T) {
+func TestListGamesEmpty(t *testing.T) {
 	backend := &mockGameBackend{
-		listGamesFunc: func() ([]string, error) {
-			return nil, nil
+		listGamesWithMetaFunc: func() ([]service.GameInfo, error) {
+			return []service.GameInfo{}, nil
 		},
 	}
 	handler := NewGameHandler(backend)
@@ -135,9 +174,12 @@ func TestListGamesNil(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
+	if !resp.Success {
+		t.Error("expected success=true")
+	}
 	data, ok := resp.Data.([]interface{})
 	if !ok {
-		t.Fatalf("expected data to be []string, got %T", resp.Data)
+		t.Fatalf("expected data to be []interface{}, got %T", resp.Data)
 	}
 	if len(data) != 0 {
 		t.Errorf("expected empty array, got %d items", len(data))
@@ -654,7 +696,7 @@ func TestAuthRequiredWithTokenQueryParam(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	middleware := AuthRequired("test-secret")
+	middleware := AuthRequired("test-secret", nil)
 	middleware(next).ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -669,7 +711,7 @@ func TestAuthRequiredTokenQueryParamInvalid(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	middleware := AuthRequired("test-secret")
+	middleware := AuthRequired("test-secret", nil)
 	middleware(next).ServeHTTP(w, req)
 
 	if w.Code != http.StatusUnauthorized {

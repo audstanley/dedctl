@@ -10,7 +10,7 @@ import (
 )
 
 func authTestMiddleware(secret string, next http.Handler) http.Handler {
-	return AuthRequired(secret)(next)
+	return AuthRequired(secret, nil)(next)
 }
 
 func TestAuthRequiredNoHeader(t *testing.T) {

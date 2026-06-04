@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -18,7 +19,8 @@ import (
 )
 
 var (
-	configFile string
+	configFile   string
+	metadataDir  string
 )
 
 // NewRootCmd creates and returns the root command
@@ -33,8 +35,17 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file (default is $HOME/.steamctl/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&metadataDir, "metadata", "", "metadata directory (default is same directory as config.yaml)")
 
 	return rootCmd
+}
+
+// resolveMetadataDir returns the metadata directory path.
+func resolveMetadataDir(cfgDir string) string {
+	if metadataDir != "" {
+		return metadataDir
+	}
+	return cfgDir
 }
 
 // Run starts the server
@@ -44,8 +55,48 @@ func Run() error {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 
+	// Determine metadata directory
+	var cfgDir string
+	if cfgFileUsed := config.GetConfigFileUsed(); cfgFileUsed != "" {
+		cfgDir = filepath.Dir(cfgFileUsed)
+	} else {
+		cfgDir = "./configs"
+	}
+	metaDir := resolveMetadataDir(cfgDir)
+	imgDir := filepath.Join(metaDir, "img")
+
+	// Ensure metadata.yaml and img/ directory exist
+	metaPath := filepath.Join(metaDir, "metadata.yaml")
+	if _, err := os.Stat(metaPath); os.IsNotExist(err) {
+		fmt.Printf("Creating metadata.yaml at %s\n", metaPath)
+		if err := config.SaveMetadata(metaDir, &config.Metadata{Games: make(map[string]config.GameMetadata)}); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	}
+	if err := os.MkdirAll(imgDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Load metadata
+	meta, err := config.LoadMetadata(metaDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+		meta = &config.Metadata{Games: make(map[string]config.GameMetadata)}
+	}
+
 	// Initialize services
 	gameService := service.NewGameService()
+	imageService := service.NewImageService()
+
+	// Set package-level metadata/image references for ListGamesWithMeta
+	gameMetaMap := make(map[string]struct{ AppId int; Order int })
+	for name, gm := range meta.Games {
+		gameMetaMap[name] = struct{ AppId int; Order int }{AppId: gm.AppId, Order: gm.Order}
+	}
+	service.SetMetadataAndImages(gameMetaMap, imageService, imgDir)
+	service.SetMetaDir(metaDir, meta)
 
 	var users []service.UserInfo
 	for _, u := range cfg.Users {
@@ -59,6 +110,33 @@ func Run() error {
 
 	authService := service.NewAuthService(users, cfg.JWT.SecretKey)
 
+	// Scan for new games and auto-add them
+	games, err := gameService.ListGames()
+	if err == nil {
+		newGames := []string{}
+		for _, name := range games {
+			if !meta.HasGame(name) {
+				meta.AddGame(name)
+				newGames = append(newGames, name)
+			}
+		}
+		if len(newGames) > 0 {
+			if err := config.SaveMetadata(metaDir, meta); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save updated metadata: %v\n", err)
+			} else {
+				fmt.Printf("Auto-added %d new game(s) to metadata.yaml: %s\n", len(newGames), strings.Join(newGames, ", "))
+			}
+		}
+
+		// Cache missing images for games that have app_id
+		if len(games) > 0 {
+			fmt.Println("Checking for missing game images...")
+			if err := imageService.CacheMissingImages(games, gameMetaMap, imgDir); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+			}
+		}
+	}
+
 	// Initialize handlers
 	gameHandler := handler.NewGameHandler(gameService)
 	authHandler := handler.NewAuthHandler(authService, &cfg.JWT)
@@ -69,15 +147,24 @@ func Run() error {
 	// Auth routes (no auth required)
 	r.HandleFunc("/auth/login", authHandler.Login).Methods("POST")
 
+	// Static image serving
+	r.HandleFunc("/images/{name}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		name := vars["name"]
+		http.ServeFile(w, r, filepath.Join(imgDir, name))
+	})
+
 	// Game routes (with auth middleware)
 	gameRouter := r.PathPrefix("/games").Subrouter()
-	gameRouter.Use(handler.AuthRequired(cfg.JWT.SecretKey))
+	gameRouter.Use(handler.AuthRequired(cfg.JWT.SecretKey, users))
 	gameRouter.HandleFunc("", gameHandler.ListGames).Methods("GET")
 	gameRouter.HandleFunc("/{game}/start", gameHandler.StartGame).Methods("POST")
 	gameRouter.HandleFunc("/{game}/stop", gameHandler.StopGame).Methods("POST")
 	gameRouter.HandleFunc("/{game}/restart", gameHandler.RestartGame).Methods("POST")
 	gameRouter.HandleFunc("/{game}/logs", gameHandler.StreamLogs).Methods("GET")
 	gameRouter.HandleFunc("/{game}/status", gameHandler.GetGameStatus).Methods("GET")
+	gameRouter.HandleFunc("/{game}/metadata", gameHandler.UpdateMetadata).Methods("PATCH")
+	gameRouter.HandleFunc("/{game}/update-art", gameHandler.UpdateArt).Methods("POST")
 
 	// Build CORS allowed origins set
 	allowedOrigins := make(map[string]bool)

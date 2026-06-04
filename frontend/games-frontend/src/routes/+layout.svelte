@@ -28,6 +28,11 @@
 		</NavContainer>
 		<div class="flex items-center">
 			{#if currentUser}
+				{#if currentUser.is_admin}
+					<a href="/admin/settings" class="hidden md:block text-gray-300 hover:text-white text-sm mr-4 transition">
+						Settings
+					</a>
+				{/if}
 				<div class="hidden md:block mr-4 text-gray-300 text-sm flex items-center">
 					<span>{currentUser.username}</span>
 					{#if currentUser.is_admin}
