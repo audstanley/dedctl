@@ -3,8 +3,9 @@
   import { gamesStore } from '$lib/stores/games';
   import { onMount } from 'svelte';
   import { Alert } from 'flowbite-svelte';
+  import type { GameInfo } from '$lib/api/client';
 
-  let games = $state<string[]>([]);
+  let games = $state<GameInfo[]>([]);
   let loading = $state(true);
   let showDismissAlert = $state(false);
   let errorMessage = $state('');
@@ -25,8 +26,8 @@
     loading = false;
   });
 
-  function handleGameClick(gameName: string) {
-    goto(`/games/${gameName}`);
+  function handleGameClick(game: GameInfo) {
+    goto(`/games/${game.name}`);
   }
 </script>
 
@@ -69,18 +70,31 @@
     </div>
   {:else}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {#each games as game (game)}
+      {#each games as game (game.name)}
         <button
           onclick={() => handleGameClick(game)}
-          class="text-left bg-gray-800 hover:bg-gray-750 border border-gray-700 rounded-lg p-6 transition hover:border-blue-500 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="text-left bg-gray-800 hover:bg-gray-750 border border-gray-700 rounded-lg overflow-hidden transition hover:border-blue-500 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold text-white capitalize">{game}</h2>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900 text-green-300">
-              Ready
-            </span>
+          {#if game.has_image}
+            <div class="h-32 bg-gray-900 overflow-hidden">
+              <img
+                src="/images/{game.app_id}.jpg"
+                alt={game.name}
+                class="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          {/if}
+          <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-xl font-bold text-white capitalize">{#if game.has_image}{game.name}{:else}{game.name}{/if}</h2>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900 text-green-300">
+                Ready
+              </span>
+            </div>
+            <p class="text-gray-400 text-sm">Click to manage server</p>
+            <p class="text-[10px] text-gray-600 mt-2 lowercase">{game.name}</p>
           </div>
-          <p class="text-gray-400 text-sm">Click to manage server</p>
         </button>
       {/each}
     </div>

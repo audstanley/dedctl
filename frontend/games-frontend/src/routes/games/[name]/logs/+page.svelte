@@ -1,9 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { onMount, onDestroy } from 'svelte';
   import { api } from '$lib/api/client';
 
-  let { name } = $props();
+  $effect(() => {
+    $page;
+  });
+  const name = $derived($page.params.name as string);
   let logs = $state<string[]>([]);
   let autoScroll = $state(true);
   let eventSource: EventSource | null = null;

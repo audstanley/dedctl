@@ -94,3 +94,8 @@ func GetConfigPath() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".steamctl", "config.yaml")
 }
+
+// GetConfigFileUsed returns the path to the config file that was used, or empty string.
+func GetConfigFileUsed() string {
+	return viperInstance.ConfigFileUsed()
+}

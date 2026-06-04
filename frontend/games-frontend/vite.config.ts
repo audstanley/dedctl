@@ -12,5 +12,11 @@ export default defineConfig({
 			host: '192.168.1.18',
 			protocol: 'ws',
 		},
+		proxy: {
+			'/images': {
+				target: 'http://192.168.1.18:8080',
+				changeOrigin: true,
+			},
+		},
 	},
 });

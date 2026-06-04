@@ -1,18 +1,28 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { gamesStore } from '$lib/stores/games';
   import { onMount } from 'svelte';
   import { Alert, Badge, Button } from 'flowbite-svelte';
+  import type { GameInfo } from '$lib/api/client';
 
-  let { name } = $props();
+  $effect(() => {
+    $page;
+  });
+  const name = $derived($page.params.name as string);
+  let gameInfo = $state<GameInfo | null>(null);
   let gameStatus = $state('not-found');
   let loading = $state(true);
   let error = $state('');
 
   onMount(async () => {
-    const games = gamesStore.getGames();
-    if (!games.includes(name)) {
+    const game = gamesStore.getGameInfo(name);
+    gameInfo = game ?? null;
+
+    if (!game) {
       await gamesStore.fetchGames();
+      const updated = gamesStore.getGameInfo(name);
+      gameInfo = updated ?? null;
     }
     gameStatus = await gamesStore.updateGameStatus(name);
     loading = false;
@@ -72,28 +82,40 @@
     <Button color="gray" onclick={handleGoBack}>Back to Dashboard</Button>
   </div>
 
-  <div class="bg-gray-800 rounded-lg p-8 shadow-lg">
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-3xl font-bold text-white capitalize">{name}</h1>
-      {#if !loading}
-        <Badge color={gameStatus === 'active' ? 'green' : gameStatus === 'inactive' ? 'red' : 'gray'}>{gameStatus}</Badge>
-      {/if}
-    </div>
-
-    {#if error}
-      <Alert color="red" dismissable>
-        {error}
-      </Alert>
+  <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+    {#if gameInfo?.has_image}
+      <div class="h-48 bg-gray-900 overflow-hidden">
+        <img
+          src="/images/{gameInfo.app_id}.jpg"
+          alt={name}
+          class="w-full h-full object-cover"
+        />
+      </div>
     {/if}
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <Button color="green" onclick={handleStart} disabled={loading || gameStatus === 'active'}>Start Server</Button>
-      <Button color="red" onclick={handleStop} disabled={loading || gameStatus === 'inactive'}>Stop Server</Button>
-      <Button color="blue" onclick={handleRestart} disabled={loading}>Restart Server</Button>
-    </div>
+    <div class="p-8">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-3xl font-bold text-white capitalize">{name}</h1>
+        {#if !loading}
+          <Badge color={gameStatus === 'active' ? 'green' : gameStatus === 'inactive' ? 'red' : 'gray'}>{gameStatus}</Badge>
+        {/if}
+      </div>
 
-    <div class="mt-8">
-      <Button color="gray" onclick={() => goto(`/games/${name}/logs`)}>View Logs →</Button>
+      {#if error}
+        <Alert color="red" dismissable>
+          {error}
+        </Alert>
+      {/if}
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Button color="green" onclick={handleStart} disabled={loading || gameStatus === 'active'}>Start Server</Button>
+        <Button color="red" onclick={handleStop} disabled={loading || gameStatus === 'inactive'}>Stop Server</Button>
+        <Button color="blue" onclick={handleRestart} disabled={loading}>Restart Server</Button>
+      </div>
+
+      <div class="mt-8">
+        <Button color="gray" onclick={() => goto(`/games/${name}/logs`)}>View Logs →</Button>
+      </div>
     </div>
   </div>
 </div>

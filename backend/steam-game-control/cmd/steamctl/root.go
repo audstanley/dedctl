@@ -15,11 +15,25 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+var metadataDir string
+
 // NewRootCmd creates and returns the root command
 func NewRootCmd() *cobra.Command {
 	return rootCmd
 }
 
 func init() {
-	// Here you can add commands
+	rootCmd.PersistentFlags().StringVar(&metadataDir, "metadata", "", "metadata directory (default is same directory as config.yaml)")
+
+	rootCmd.AddCommand(NewCacheImagesCmd())
+	rootCmd.AddCommand(NewHashCmd())
+}
+
+// resolveMetadataDir returns the metadata directory path.
+func resolveMetadataDir() string {
+	if metadataDir != "" {
+		return metadataDir
+	}
+	// Default to ./configs
+	return "./configs"
 }
