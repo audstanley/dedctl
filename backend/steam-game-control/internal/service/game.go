@@ -13,10 +13,18 @@ import (
 
 // GameInfo holds enriched information about a game server.
 type GameInfo struct {
-	Name     string `json:"name"`
-	AppId    int    `json:"app_id"`
-	Order    int    `json:"order"`
-	HasImage bool   `json:"has_image"`
+	Name      string `json:"name"`
+	AppId     int    `json:"app_id"`
+	Order     int    `json:"order"`
+	HasImage  bool   `json:"has_image"`
+	MainImage string `json:"main_image"`
+	Icon      string `json:"icon"`
+}
+
+// ServerInfo holds global server metadata (public, no auth).
+type ServerInfo struct {
+	MainImage string `json:"main_image"`
+	Icon      string `json:"icon"`
 }
 
 // GameBackend defines the interface for game server operations.
@@ -30,7 +38,9 @@ type GameBackend interface {
 	GetGameStatus(name string) (string, error)
 	StreamLogs(ctx context.Context, name string, callback func(string)) error
 	UpdateMetadata(name string, appId, order int) error
+	UpdateGlobalMetadata(field string, value string) error
 	UpdateArt(name string, appId int) error
+	GetServerInfo() ServerInfo
 }
 
 // dbusConn abstracts the D-Bus connection for testability
@@ -138,10 +148,12 @@ func (s *GameService) ListGamesWithMeta() ([]GameInfo, error) {
 			order = gm.Order
 		}
 		infos = append(infos, GameInfo{
-			Name:     name,
-			AppId:    appId,
-			Order:    order,
-			HasImage: appId > 0 && imageService.ImageExists(appId, imgDir),
+			Name:      name,
+			AppId:     appId,
+			Order:     order,
+			HasImage:  appId > 0 && imageService.ImageExists(appId, imgDir),
+			MainImage: gameMetadataObj.GetMainImage(),
+			Icon:      gameMetadataObj.GetIcon(),
 		})
 	}
 
@@ -287,6 +299,35 @@ func (s *GameService) UpdateMetadata(name string, appId, order int) error {
 	return config.SaveMetadata(metaDir, gameMetadataObj)
 }
 
+// UpdateGlobalMetadata updates a global metadata field (main_image or icon).
+func (s *GameService) UpdateGlobalMetadata(field, value string) error {
+	if gameMetadataObj == nil {
+		return fmt.Errorf("metadata not initialized")
+	}
+
+	switch field {
+	case "main_image":
+		gameMetadataObj.SetMainImage(value)
+	case "icon":
+		gameMetadataObj.SetIcon(value)
+	default:
+		return fmt.Errorf("unknown field: %s", field)
+	}
+
+	return config.SaveMetadata(metaDir, gameMetadataObj)
+}
+
+// GetServerInfo returns global server metadata.
+func (s *GameService) GetServerInfo() ServerInfo {
+	if gameMetadataObj == nil {
+		return ServerInfo{}
+	}
+	return ServerInfo{
+		MainImage: gameMetadataObj.GetMainImage(),
+		Icon:      gameMetadataObj.GetIcon(),
+	}
+}
+
 // UpdateArt downloads the game cover image for a single game.
 func (s *GameService) UpdateArt(name string, appId int) error {
 	if imageService == nil || appId <= 0 {
@@ -327,15 +368,17 @@ func (m *dbusMock) RestartUnit(name string, mode string, ch chan<- string) (int,
 
 // MockGameBackend is a test double for GameBackend
 type MockGameBackend struct {
-	ListGamesFunc           func() ([]string, error)
-	ListGamesWithMetaFunc   func() ([]GameInfo, error)
-	StartGameFunc           func(name string) error
-	StopGameFunc            func(name string) error
-	RestartGameFunc         func(name string) error
-	GetGameStatusFunc       func(name string) (string, error)
-	StreamLogsFunc          func(ctx context.Context, name string, callback func(string)) error
-	UpdateMetadataFunc      func(name string, appId, order int) error
-	UpdateArtFunc           func(name string, appId int) error
+	ListGamesFunc          func() ([]string, error)
+	ListGamesWithMetaFunc  func() ([]GameInfo, error)
+	StartGameFunc          func(name string) error
+	StopGameFunc           func(name string) error
+	RestartGameFunc        func(name string) error
+	GetGameStatusFunc      func(name string) (string, error)
+	StreamLogsFunc         func(ctx context.Context, name string, callback func(string)) error
+	UpdateMetadataFunc     func(name string, appId, order int) error
+	UpdateGlobalMetadataFunc func(field, value string) error
+	UpdateArtFunc          func(name string, appId int) error
+	GetServerInfoFunc      func() ServerInfo
 }
 
 // ListGames implements GameBackend
@@ -384,7 +427,17 @@ func (m *MockGameBackend) UpdateMetadata(name string, appId, order int) error {
 	return m.UpdateMetadataFunc(name, appId, order)
 }
 
+// UpdateGlobalMetadata implements GameBackend
+func (m *MockGameBackend) UpdateGlobalMetadata(field, value string) error {
+	return m.UpdateGlobalMetadataFunc(field, value)
+}
+
 // UpdateArt implements GameBackend
 func (m *MockGameBackend) UpdateArt(name string, appId int) error {
 	return m.UpdateArtFunc(name, appId)
+}
+
+// GetServerInfo implements GameBackend
+func (m *MockGameBackend) GetServerInfo() ServerInfo {
+	return m.GetServerInfoFunc()
 }

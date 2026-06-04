@@ -53,6 +53,15 @@ func (h *GameHandler) ListGames(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *GameHandler) GetServerInfo(w http.ResponseWriter, r *http.Request) {
+	info := h.gameBackend.GetServerInfo()
+	WriteJSON(w, http.StatusOK, CommonResponse{
+		Success: true,
+		Message: "Server info retrieved",
+		Data:    info,
+	})
+}
+
 func (h *GameHandler) StartGame(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	gameName := vars["game"]
@@ -210,6 +219,35 @@ func (h *GameHandler) UpdateMetadata(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusOK, CommonResponse{
 		Success: true,
 		Message: fmt.Sprintf("Metadata for %s updated", gameName),
+	})
+}
+
+func (h *GameHandler) UpdateGlobalSettings(w http.ResponseWriter, r *http.Request) {
+	isAdmin, _ := r.Context().Value("is_admin").(bool)
+	if !isAdmin {
+		WriteError(w, http.StatusForbidden, "Admin access required")
+		return
+	}
+
+	var req struct {
+		MainImage string `json:"main_image"`
+		Icon      string `json:"icon"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.MainImage != "" {
+		h.gameBackend.UpdateGlobalMetadata("main_image", req.MainImage)
+	}
+	if req.Icon != "" {
+		h.gameBackend.UpdateGlobalMetadata("icon", req.Icon)
+	}
+
+	WriteJSON(w, http.StatusOK, CommonResponse{
+		Success: true,
+		Message: "Server settings updated",
 	})
 }
 

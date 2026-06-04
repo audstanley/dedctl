@@ -154,6 +154,8 @@ func Run() error {
 		http.ServeFile(w, r, filepath.Join(imgDir, name))
 	})
 
+	r.HandleFunc("/server-info", gameHandler.GetServerInfo).Methods("GET")
+
 	// Game routes (with auth middleware)
 	gameRouter := r.PathPrefix("/games").Subrouter()
 	gameRouter.Use(handler.AuthRequired(cfg.JWT.SecretKey, users))
@@ -165,6 +167,7 @@ func Run() error {
 	gameRouter.HandleFunc("/{game}/status", gameHandler.GetGameStatus).Methods("GET")
 	gameRouter.HandleFunc("/{game}/metadata", gameHandler.UpdateMetadata).Methods("PATCH")
 	gameRouter.HandleFunc("/{game}/update-art", gameHandler.UpdateArt).Methods("POST")
+	gameRouter.HandleFunc("/settings", gameHandler.UpdateGlobalSettings).Methods("PATCH")
 
 	// Build CORS allowed origins set
 	allowedOrigins := make(map[string]bool)

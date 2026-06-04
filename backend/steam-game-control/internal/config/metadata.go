@@ -17,7 +17,9 @@ type GameMetadata struct {
 
 // Metadata holds the game metadata configuration.
 type Metadata struct {
-	Games map[string]GameMetadata `yaml:"games"`
+	MainImage string                   `yaml:"main_image"`
+	Icon      string                   `yaml:"icon"`
+	Games     map[string]GameMetadata  `yaml:"games"`
 }
 
 // LoadMetadata reads the metadata YAML file from the given directory.
@@ -130,4 +132,24 @@ func (m *Metadata) SetAppId(name string, appId int) {
 	}
 	gm.AppId = appId
 	m.Games[name] = gm
+}
+
+// SetMainImage sets the main featured image for the server.
+func (m *Metadata) SetMainImage(image string) {
+	m.MainImage = image
+}
+
+// GetMainImage returns the main featured image.
+func (m *Metadata) GetMainImage() string {
+	return m.MainImage
+}
+
+// SetIcon sets the navbar icon for the server.
+func (m *Metadata) SetIcon(icon string) {
+	m.Icon = icon
+}
+
+// GetIcon returns the navbar icon.
+func (m *Metadata) GetIcon() string {
+	return m.Icon
 }

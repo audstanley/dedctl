@@ -2,10 +2,21 @@
   import '../app.css';
   import { goto } from '$app/navigation';
   import { auth, logout, type User } from '$lib/stores/auth';
+  import { gamesStore } from '$lib/stores/games';
+  import { onMount } from 'svelte';
   import { Navbar, NavContainer, Button } from 'flowbite-svelte';
+  import type { GameInfo, ServerInfo } from '$lib/api/client';
 
   let { children } = $props();
   let currentUser = $state<User | null>(auth.getUser());
+  let serverIcon = $state<string>('');
+
+  onMount(async () => {
+    const info = await gamesStore.getServerInfo();
+    if (info?.icon) {
+      serverIcon = info.icon;
+    }
+  });
 
   $effect(() => {
     return auth.subscribe(() => {
@@ -22,6 +33,9 @@
 <div class="min-h-screen bg-gray-900">
 	<Navbar class="bg-gray-800 shadow-lg">
 		<NavContainer>
+			{#if serverIcon}
+				<img src="/images/{serverIcon}" alt="icon" class="w-8 h-8 mr-2 object-contain" />
+			{/if}
 			<a href="/dashboard" class="text-white text-xl font-bold hover:text-blue-400 transition">
 				Game Server Control
 			</a>

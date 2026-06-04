@@ -121,6 +121,19 @@ class ApiClient {
     });
     return response;
   }
+
+  async updateGlobalSettings(mainImage: string, icon: string): Promise<CommonResponse> {
+    const response = await this.request<CommonResponse & { data: CommonResponse }>(`/games/settings`, {
+      method: 'PATCH',
+      body: JSON.stringify({ main_image: mainImage, icon }),
+    });
+    return response;
+  }
+
+  async getServerInfo(): Promise<ServerInfo> {
+    const response = await this.request<CommonResponse & { data: ServerInfo }>('/server-info');
+    return response.data;
+  }
 }
 
 type CommonResponse = {
@@ -147,6 +160,11 @@ export type GameInfo = {
 type ControlResponse = {
   status: string;
   game: string;
+};
+
+export type ServerInfo = {
+  main_image: string;
+  icon: string;
 };
 
 export const api = new ApiClient();

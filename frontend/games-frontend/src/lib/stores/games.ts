@@ -10,6 +10,11 @@ type GameInfo = {
   has_image: boolean;
 };
 
+type ServerInfo = {
+  main_image: string;
+  icon: string;
+};
+
 type GameStatus = 'active' | 'inactive' | 'not-found' | string;
 
 class GamesStore {
@@ -142,6 +147,24 @@ class GamesStore {
     } catch (err) {
       this.handleAuthError(err);
       return { success: false, error: err instanceof Error ? err.message : 'Failed to update game art' };
+    }
+  }
+
+  async updateGlobalSettings(mainImage: string, icon: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await api.updateGlobalSettings(mainImage, icon);
+      return { success: true };
+    } catch (err) {
+      this.handleAuthError(err);
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to update settings' };
+    }
+  }
+
+  async getServerInfo(): Promise<ServerInfo | null> {
+    try {
+      return await api.getServerInfo();
+    } catch {
+      return null;
     }
   }
 }

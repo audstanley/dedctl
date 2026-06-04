@@ -4,11 +4,12 @@
   import { auth, getUser, type User } from '$lib/stores/auth';
   import { onMount } from 'svelte';
   import { Alert, Badge } from 'flowbite-svelte';
-  import type { GameInfo } from '$lib/api/client';
+  import type { GameInfo, ServerInfo } from '$lib/api/client';
 
   let games = $state<GameInfo[]>([]);
   let loading = $state(true);
   let currentUser = $state<User | null>(null);
+  let serverInfo = $state<ServerInfo>({ main_image: '', icon: '' });
   let errorMessage = $state('');
   let successMessage = $state('');
   let showDismissAlert = $state(false);
@@ -16,12 +17,17 @@
   let updatingArt = $state<string | null>(null);
   let editingAppId = $state<Record<string, number>>({});
   let editingOrder = $state<Record<string, number>>({});
+  let updatingGlobal = $state<string | null>(null);
 
   onMount(async () => {
     currentUser = getUser();
     if (!currentUser?.is_admin) {
       goto('/dashboard');
       return;
+    }
+    const info = await gamesStore.getServerInfo();
+    if (info) {
+      serverInfo = info;
     }
     const result = await gamesStore.fetchGames();
     if (result.success && result.games) {
@@ -83,6 +89,21 @@
       errorMessage = '';
     } else {
       errorMessage = result.error || 'Failed to update game art';
+      showDismissAlert = true;
+    }
+  }
+
+  async function handleSaveGlobalSettings() {
+    updatingGlobal = 'global';
+    errorMessage = '';
+    const result = await gamesStore.updateGlobalSettings(serverInfo.main_image, serverInfo.icon);
+    updatingGlobal = null;
+    if (result.success) {
+      successMessage = 'Server settings saved';
+      showDismissSuccess = true;
+      errorMessage = '';
+    } else {
+      errorMessage = result.error || 'Failed to save settings';
       showDismissAlert = true;
     }
   }
@@ -219,4 +240,64 @@
       </div>
     </div>
   {/if}
+
+  <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+    <div class="p-6">
+      <h2 class="text-xl font-bold text-white mb-4">Server Settings</h2>
+      <p class="text-sm text-gray-400 mb-6">Global images used across the frontend. Upload images to the img/ directory and enter their filenames.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Main Image</label>
+          <input
+            type="text"
+            value={serverInfo.main_image}
+            oninput={(e) => {
+              serverInfo = { ...serverInfo, main_image: (e.target as HTMLInputElement).value };
+            }}
+            placeholder="e.g. main-banner.jpg"
+            class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+          />
+          {#if serverInfo.main_image}
+            <div class="mt-3">
+              <img src="/images/{serverInfo.main_image}" alt="preview" class="w-full max-h-48 object-contain rounded-lg bg-gray-900" onerror={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            </div>
+          {/if}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Navbar Icon</label>
+          <input
+            type="text"
+            value={serverInfo.icon}
+            oninput={(e) => {
+              serverInfo = { ...serverInfo, icon: (e.target as HTMLInputElement).value };
+            }}
+            placeholder="e.g. icon.png"
+            class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+          />
+          {#if serverInfo.icon}
+            <div class="mt-3">
+              <img src="/images/{serverInfo.icon}" alt="icon preview" class="w-16 h-16 object-contain rounded-lg bg-gray-900 p-2" onerror={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            </div>
+          {/if}
+        </div>
+      </div>
+      <div class="mt-6">
+        <button
+          onclick={handleSaveGlobalSettings}
+          disabled={updatingGlobal !== null}
+          class="inline-flex items-center px-4 py-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition"
+        >
+          {#if updatingGlobal === 'global'}
+            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Saving...
+          {:else}
+            Save Settings
+          {/if}
+        </button>
+      </div>
+    </div>
+  </div>
 </div>

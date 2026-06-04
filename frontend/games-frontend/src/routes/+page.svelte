@@ -1,13 +1,24 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { login } from '$lib/stores/auth';
+  import { gamesStore } from '$lib/stores/games';
+  import { onMount } from 'svelte';
   import { Alert } from 'flowbite-svelte';
+  import type { ServerInfo } from '$lib/api/client';
 
   let username = $state('');
   let password = $state('');
   let showDismissAlert = $state(false);
   let error = $state('');
   let loading = $state(false);
+  let bannerImage = $state<string>('');
+
+  onMount(async () => {
+    const info = await gamesStore.getServerInfo();
+    if (info?.main_image) {
+      bannerImage = info.main_image;
+    }
+  });
 
   async function handleLogin() {
     showDismissAlert = false;
@@ -28,7 +39,12 @@
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-  <div class="max-w-md w-full space-y-8">
+  {#if bannerImage}
+    <div class="absolute inset-0 overflow-hidden">
+      <img src="/images/{bannerImage}" alt="banner" class="w-full h-full object-cover opacity-10" />
+    </div>
+  {/if}
+  <div class="max-w-md w-full space-y-8 relative">
     <div class="text-center">
       <div class="flex justify-center mb-4">
         <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">

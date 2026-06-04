@@ -69,11 +69,19 @@ func (m *mockGameBackend) UpdateMetadata(name string, appId, order int) error {
 	return nil
 }
 
+func (m *mockGameBackend) UpdateGlobalMetadata(field, value string) error {
+	return nil
+}
+
 func (m *mockGameBackend) UpdateArt(name string, appId int) error {
 	if m.updateArtFunc != nil {
 		return m.updateArtFunc(name, appId)
 	}
 	return nil
+}
+
+func (m *mockGameBackend) GetServerInfo() service.ServerInfo {
+	return service.ServerInfo{}
 }
 
 func setupGameRouter(handler *GameHandler) *mux.Router {
