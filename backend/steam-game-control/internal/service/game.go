@@ -207,16 +207,24 @@ func (s *GameService) StreamLogs(ctx context.Context, gameName string, callback 
 	defer journal.Close()
 
 	unitName := fmt.Sprintf("steam-%s.service", gameName)
-journal.AddMatch(sdjournal.SD_JOURNAL_FIELD_SYSTEMD_USER_UNIT + "=" + unitName)
+	journal.AddMatch("_SYSTEMD_USER_UNIT=" + unitName)
 
-	// Seek to the middle of the journal to avoid blocking on SeekTail
-	journal.SeekHead()
+	const maxHistoryEntries = 200
+
+	// Seek to the tail and read backwards for the last N entries
+	journal.SeekTail()
+	var historyEntries []string
+	var entriesRead int
 	for {
-		n, err := journal.Next()
+		n, err := journal.Previous()
 		if err != nil {
 			return err
 		}
 		if n == 0 {
+			break
+		}
+
+		if entriesRead >= maxHistoryEntries {
 			break
 		}
 
@@ -230,8 +238,17 @@ journal.AddMatch(sdjournal.SD_JOURNAL_FIELD_SYSTEMD_USER_UNIT + "=" + unitName)
 			continue
 		}
 
-		logLine := fmt.Sprintf("[%d] %s", entry.RealtimeTimestamp, msg)
-		callback(logLine)
+		entriesRead++
+		loc, _ := time.LoadLocation("America/Los_Angeles")
+		logLine := fmt.Sprintf("[%s] %s", time.Unix(0, int64(entry.RealtimeTimestamp)*1000).In(loc).Format(time.RFC3339), msg)
+		historyEntries = append(historyEntries, logLine)
+	}
+	// Reverse so entries are in chronological order
+	for i, j := 0, len(historyEntries)-1; i < j; i, j = i+1, j-1 {
+		historyEntries[i], historyEntries[j] = historyEntries[j], historyEntries[i]
+	}
+	for _, entry := range historyEntries {
+		callback(entry)
 	}
 
 	for {
@@ -264,7 +281,8 @@ journal.AddMatch(sdjournal.SD_JOURNAL_FIELD_SYSTEMD_USER_UNIT + "=" + unitName)
 					continue
 				}
 
-				logLine := fmt.Sprintf("[%d] %s", entry.RealtimeTimestamp, msg)
+				loc, _ := time.LoadLocation("America/Los_Angeles")
+				logLine := fmt.Sprintf("[%s] %s", time.Unix(0, int64(entry.RealtimeTimestamp)*1000).In(loc).Format(time.RFC3339), msg)
 				callback(logLine)
 			}
 		case sdjournal.SD_JOURNAL_NOP:

@@ -1,6 +1,6 @@
 #!/bin/bash
 while true; do
-  echo "[$(date +%s)] audstanley-games: heartbeat - system operational"
-  echo "[$(date +%s)] audstanley-games: health check passed - uptime OK"
-  sleep 60
+  echo "audstanley-games: heartbeat - system operational"
+  echo "audstanley-games: health check passed - uptime OK"
+  sleep 5
 done

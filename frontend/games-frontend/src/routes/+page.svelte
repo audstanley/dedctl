@@ -1,24 +1,14 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { login } from '$lib/stores/auth';
-  import { gamesStore } from '$lib/stores/games';
-  import { onMount } from 'svelte';
+  
   import { Alert } from 'flowbite-svelte';
-  import type { ServerInfo } from '$lib/api/client';
 
   let username = $state('');
   let password = $state('');
   let showDismissAlert = $state(false);
   let error = $state('');
   let loading = $state(false);
-  let bannerImage = $state<string>('');
-
-  onMount(async () => {
-    const info = await gamesStore.getServerInfo();
-    if (info?.main_image) {
-      bannerImage = info.main_image;
-    }
-  });
 
   async function handleLogin() {
     showDismissAlert = false;
@@ -39,21 +29,10 @@
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-  {#if bannerImage}
-    <div class="absolute inset-0 overflow-hidden">
-      <img src="/images/{bannerImage}" alt="banner" class="w-full h-full object-cover opacity-10" />
-    </div>
-  {/if}
   <div class="max-w-md w-full space-y-8 relative">
     <div class="text-center">
-      <div class="flex justify-center mb-4">
-        <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
-          <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-          </svg>
-        </div>
-      </div>
-      <h2 class="text-3xl font-bold text-white">Game Server Control</h2>
+      <img alt="dedctl" class="w-124 h-124 object-contain mx-auto mb-4" src="/images/main_cuttle.png" />
+      <h2 class="text-3xl font-bold text-white">dedctl</h2>
       <p class="mt-2 text-sm text-gray-400">Sign in to manage your game servers</p>
     </div>
 

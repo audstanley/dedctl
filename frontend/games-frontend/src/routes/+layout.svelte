@@ -37,7 +37,7 @@
 				<img src="/images/{serverIcon}" alt="icon" class="w-8 h-8 mr-2 object-contain" />
 			{/if}
 			<a href="/dashboard" class="text-white text-xl font-bold hover:text-blue-400 transition">
-				Game Server Control
+				dedctl
 			</a>
 		</NavContainer>
 		<div class="flex items-center">

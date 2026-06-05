@@ -8,27 +8,40 @@
     $page;
   });
   const name = $derived($page.params.name as string);
-  let logs = $state<string[]>([]);
   let autoScroll = $state(true);
   let eventSource: EventSource | null = null;
   let connected = $state(false);
   let reconnecting = $state(false);
   let reconnectCount = $state(0);
   let maxRetries = $state(5);
-  const MAX_LOGS = 1000;
+  const MAX_LOGS = 500;
 
   let scrollContainer: HTMLDivElement | null = null;
-
-  $effect(() => {
-    if (autoScroll) {
-      scrollContainer?.scrollTo(0, scrollContainer.scrollHeight);
-    }
-  });
+  let logList: HTMLDivElement | null = null;
 
   function escapeHtml(text: string): string {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  function appendLogLine(logLine: string) {
+    if (!scrollContainer || !logList) return;
+
+    const div = document.createElement('div');
+    div.className = 'text-gray-300 hover:bg-gray-750 px-2 py-0.5 rounded';
+    div.textContent = escapeHtml(logLine);
+
+    logList.appendChild(div);
+
+    // Trim oldest entries if we exceed MAX_LOGS
+    while (logList.children.length > MAX_LOGS && logList.firstChild) {
+      logList.removeChild(logList.firstChild);
+    }
+
+    if (autoScroll) {
+      scrollContainer.scrollTo(0, scrollContainer.scrollHeight);
+    }
   }
 
   function connect() {
@@ -46,10 +59,7 @@
     };
 
     source.onmessage = (event) => {
-      logs = [...logs, event.data];
-      if (logs.length > MAX_LOGS) {
-        logs = logs.slice(-MAX_LOGS);
-      }
+      appendLogLine(event.data);
     };
 
     source.onerror = (error) => {
@@ -84,38 +94,31 @@
     if (eventSource !== null) {
       eventSource.close();
     }
-    logs = [];
+    if (logList) {
+      logList.innerHTML = '<div id="empty-state" class="text-gray-500 text-center py-8"><p>No logs yet. Waiting for server output...</p></div>';
+    }
     reconnectCount = 0;
     connect();
   }
 
   function handleClear() {
-    logs = [];
+    if (logList) {
+      logList.innerHTML = '<div id="empty-state" class="text-gray-500 text-center py-8"><p>No logs yet. Waiting for server output...</p></div>';
+    }
   }
 
   function handleGoBack() {
     goto(`/games/${name}`);
   }
 
-  function formatTimestamp(timestamp: string): string {
-    try {
-      const date = new Date(parseInt(timestamp));
-      if (isNaN(date.getTime())) {
-        return timestamp;
-      }
-      return date.toLocaleTimeString();
-    } catch {
-      return timestamp;
+  // Show/hide empty state
+  $effect(() => {
+    if (!logList) return;
+    const emptyMsg = logList.querySelector('#empty-state');
+    if (emptyMsg) {
+      (emptyMsg as HTMLElement).style.display = logList.children.length === 0 ? 'block' : 'none';
     }
-  }
-
-  function extractMessage(line: string): string {
-    const lastBracket = line.lastIndexOf(']');
-    if (lastBracket > 0) {
-      return line.substring(lastBracket + 1).trim();
-    }
-    return line;
-  }
+  });
 </script>
 
 <div class="space-y-6">
@@ -178,26 +181,11 @@
     <div
       bind:this={scrollContainer}
       onscroll={handleScroll}
-      class="h-96 overflow-y-auto p-4 font-mono text-sm space-y-1"
+      class="h-96 overflow-y-auto p-4 font-mono text-sm"
     >
-      {#if logs.length === 0}
-        <div class="text-gray-500 text-center py-8">
-          <p>No logs yet. Waiting for server output...</p>
-        </div>
-      {:else}
-        {#each logs as log}
-          <div class="text-gray-300 hover:bg-gray-750 px-2 py-0.5 rounded">
-            <span class="text-blue-400 mr-2">
-              {#if log.includes('[') && log.includes(']')}
-                {formatTimestamp(extractMessage(log))}
-              {:else}
-                -
-              {/if}
-            </span>
-            {escapeHtml(extractMessage(log))}
-          </div>
-        {/each}
-      {/if}
+      <div bind:this={logList} class="space-y-1">
+        <div id="empty-state" class="text-gray-500 text-center py-8"><p>No logs yet. Waiting for server output...</p></div>
+      </div>
     </div>
   </div>
 </div>
