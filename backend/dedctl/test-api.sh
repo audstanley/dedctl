@@ -12,13 +12,13 @@ sleep 2
 echo "Testing authentication endpoints..."
 curl -X POST http://localhost:8085/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"password","is_admin":true}' \
+  -d '{"username":"admin","password":"admin123","is_admin":true}' \
   && echo "User registration completed"
 
 echo "Testing login endpoint..."
 curl -X POST http://localhost:8085/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"password"}' \
+  -d '{"username":"admin","password":"admin123"}' \
   && echo "Login completed"
 
 echo "Testing game listing..."
