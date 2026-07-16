@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { gamesStore } from '$lib/stores/games';
+  import { auth } from '$lib/stores/auth';
   import { onMount } from 'svelte';
   import { Alert, Badge, Button } from 'flowbite-svelte';
   import type { GameInfo } from '$lib/api/client';
@@ -14,6 +15,7 @@
   let gameStatus = $state('not-found');
   let loading = $state(true);
   let error = $state('');
+  let adminUser = $derived(auth.getUser()?.is_admin === true);
 
   onMount(async () => {
     const game = gamesStore.getGameInfo(name);
@@ -52,6 +54,24 @@
       gameStatus = 'active';
     } else {
       error = result.error || 'Failed to restart game';
+    }
+  }
+
+  async function handleEnable() {
+    const result = await gamesStore.enableGame(name);
+    if (result.success) {
+      gameInfo = gameInfo ? { ...gameInfo, enabled: true } : null;
+    } else {
+      error = result.error || 'Failed to enable game';
+    }
+  }
+
+  async function handleDisable() {
+    const result = await gamesStore.disableGame(name);
+    if (result.success) {
+      gameInfo = gameInfo ? { ...gameInfo, enabled: false } : null;
+    } else {
+      error = result.error || 'Failed to disable game';
     }
   }
 
@@ -112,6 +132,16 @@
         <Button color="red" onclick={handleStop} disabled={loading || gameStatus === 'inactive'}>Stop Server</Button>
         <Button color="blue" onclick={handleRestart} disabled={loading}>Restart Server</Button>
       </div>
+
+      {#if adminUser}
+        <div class="mt-4">
+          {#if gameInfo?.enabled}
+            <Button color="red" onclick={handleDisable} disabled={loading}>Disable (Auto-start on login)</Button>
+          {:else}
+            <Button color="gray" onclick={handleEnable} disabled={loading}>Enable (Auto-start on login)</Button>
+          {/if}
+        </div>
+      {/if}
 
       <div class="mt-8">
         <Button color="gray" onclick={() => goto(`/games/${name}/logs`)}>View Logs →</Button>

@@ -8,6 +8,7 @@ type GameInfo = {
   app_id: number;
   order: number;
   has_image: boolean;
+  enabled: boolean;
 };
 
 type ServerInfo = {
@@ -165,6 +166,28 @@ class GamesStore {
       return await api.getServerInfo();
     } catch {
       return null;
+    }
+  }
+
+  async enableGame(gameName: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await api.enableGame(gameName);
+      await this.fetchGames();
+      return { success: true };
+    } catch (err) {
+      this.handleAuthError(err);
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to enable game' };
+    }
+  }
+
+  async disableGame(gameName: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await api.disableGame(gameName);
+      await this.fetchGames();
+      return { success: true };
+    } catch (err) {
+      this.handleAuthError(err);
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to disable game' };
     }
   }
 }

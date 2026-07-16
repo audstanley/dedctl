@@ -134,6 +134,20 @@ class ApiClient {
     const response = await this.request<CommonResponse & { data: ServerInfo }>('/server-info');
     return response.data;
   }
+
+  async enableGame(gameName: string): Promise<CommonResponse> {
+    const response = await this.request<CommonResponse & { data: CommonResponse }>(`/games/${gameName}/enable`, {
+      method: 'POST',
+    });
+    return response;
+  }
+
+  async disableGame(gameName: string): Promise<CommonResponse> {
+    const response = await this.request<CommonResponse & { data: CommonResponse }>(`/games/${gameName}/disable`, {
+      method: 'POST',
+    });
+    return response;
+  }
 }
 
 type CommonResponse = {
@@ -155,6 +169,7 @@ export type GameInfo = {
   app_id: number;
   order: number;
   has_image: boolean;
+  enabled: boolean;
 };
 
 type ControlResponse = {

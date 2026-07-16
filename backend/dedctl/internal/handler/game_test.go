@@ -24,6 +24,8 @@ type mockGameBackend struct {
 	startGameFunc           func(name string) error
 	stopGameFunc            func(name string) error
 	restartGameFunc         func(name string) error
+	enableGameFunc          func(name string) error
+	disableGameFunc         func(name string) error
 	getGameStatusFunc       func(name string) (string, error)
 	streamLogsFunc          func(ctx context.Context, name string, callback func(string)) error
 	updateMetadataFunc      func(name string, appId, order int) error
@@ -52,6 +54,14 @@ func (m *mockGameBackend) StopGame(name string) error {
 
 func (m *mockGameBackend) RestartGame(name string) error {
 	return m.restartGameFunc(name)
+}
+
+func (m *mockGameBackend) EnableGame(name string) error {
+	return m.enableGameFunc(name)
+}
+
+func (m *mockGameBackend) DisableGame(name string) error {
+	return m.disableGameFunc(name)
 }
 
 func (m *mockGameBackend) GetGameStatus(name string) (string, error) {
@@ -91,6 +101,8 @@ func setupGameRouter(handler *GameHandler) *mux.Router {
 	gameRouter.HandleFunc("/{game}/start", handler.StartGame).Methods("POST")
 	gameRouter.HandleFunc("/{game}/stop", handler.StopGame).Methods("POST")
 	gameRouter.HandleFunc("/{game}/restart", handler.RestartGame).Methods("POST")
+	gameRouter.HandleFunc("/{game}/enable", handler.EnableGame).Methods("POST")
+	gameRouter.HandleFunc("/{game}/disable", handler.DisableGame).Methods("POST")
 	gameRouter.HandleFunc("/{game}/logs", handler.StreamLogs).Methods("GET")
 	gameRouter.HandleFunc("/{game}/status", handler.GetGameStatus).Methods("GET")
 	return r
@@ -329,6 +341,144 @@ func TestRestartGameError(t *testing.T) {
 	w := httptest.NewRecorder()
 	router := setupGameRouter(handler)
 	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.Code)
+	}
+}
+
+func TestEnableGameSuccess(t *testing.T) {
+	backend := &mockGameBackend{
+		enableGameFunc: func(name string) error {
+			return nil
+		},
+	}
+	handler := NewGameHandler(backend)
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.EnableGame(w, r)
+	})
+	middleware := AuthRequired("test-secret", []service.UserInfo{{Username: "admin", IsAdmin: true}})
+
+	token, _ := utils.GenerateToken("admin", "test-secret")
+	req := httptest.NewRequest("POST", "/games/csgo/enable", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	middleware(next).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestEnableGameForbidden(t *testing.T) {
+	backend := &mockGameBackend{
+		enableGameFunc: func(name string) error {
+			return nil
+		},
+	}
+	handler := NewGameHandler(backend)
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.EnableGame(w, r)
+	})
+	middleware := AuthRequired("test-secret", []service.UserInfo{{Username: "admin", IsAdmin: true}})
+
+	token, _ := utils.GenerateToken("operator", "test-secret")
+	req := httptest.NewRequest("POST", "/games/csgo/enable", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	middleware(next).ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", w.Code)
+	}
+}
+
+func TestEnableGameError(t *testing.T) {
+	backend := &mockGameBackend{
+		enableGameFunc: func(name string) error {
+			return errors.New("systemctl enable failed")
+		},
+	}
+	handler := NewGameHandler(backend)
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.EnableGame(w, r)
+	})
+	middleware := AuthRequired("test-secret", []service.UserInfo{{Username: "admin", IsAdmin: true}})
+
+	token, _ := utils.GenerateToken("admin", "test-secret")
+	req := httptest.NewRequest("POST", "/games/missing/enable", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	middleware(next).ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.Code)
+	}
+}
+
+func TestDisableGameSuccess(t *testing.T) {
+	backend := &mockGameBackend{
+		disableGameFunc: func(name string) error {
+			return nil
+		},
+	}
+	handler := NewGameHandler(backend)
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.DisableGame(w, r)
+	})
+	middleware := AuthRequired("test-secret", []service.UserInfo{{Username: "admin", IsAdmin: true}})
+
+	token, _ := utils.GenerateToken("admin", "test-secret")
+	req := httptest.NewRequest("POST", "/games/csgo/disable", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	middleware(next).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestDisableGameForbidden(t *testing.T) {
+	backend := &mockGameBackend{
+		disableGameFunc: func(name string) error {
+			return nil
+		},
+	}
+	handler := NewGameHandler(backend)
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.DisableGame(w, r)
+	})
+	middleware := AuthRequired("test-secret", []service.UserInfo{{Username: "admin", IsAdmin: true}})
+
+	token, _ := utils.GenerateToken("operator", "test-secret")
+	req := httptest.NewRequest("POST", "/games/csgo/disable", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	middleware(next).ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", w.Code)
+	}
+}
+
+func TestDisableGameError(t *testing.T) {
+	backend := &mockGameBackend{
+		disableGameFunc: func(name string) error {
+			return errors.New("systemctl disable failed")
+		},
+	}
+	handler := NewGameHandler(backend)
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.DisableGame(w, r)
+	})
+	middleware := AuthRequired("test-secret", []service.UserInfo{{Username: "admin", IsAdmin: true}})
+
+	token, _ := utils.GenerateToken("admin", "test-secret")
+	req := httptest.NewRequest("POST", "/games/missing/disable", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	middleware(next).ServeHTTP(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected 500, got %d", w.Code)

@@ -113,30 +113,12 @@ func Run() error {
 
 	authService := service.NewAuthService(users, cfg.JWT.SecretKey)
 
-	// Scan for new games and auto-add them
+	// Cache missing images for games that have app_id (no auto-add)
 	games, err := gameService.ListGames()
-	if err == nil {
-		newGames := []string{}
-		for _, name := range games {
-			if !meta.HasGame(name) {
-				meta.AddGame(name)
-				newGames = append(newGames, name)
-			}
-		}
-		if len(newGames) > 0 {
-			if err := config.SaveMetadata(metaDir, meta); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save updated metadata: %v\n", err)
-			} else {
-				fmt.Printf("Auto-added %d new game(s) to metadata.yaml: %s\n", len(newGames), strings.Join(newGames, ", "))
-			}
-		}
-
-		// Cache missing images for games that have app_id
-		if len(games) > 0 {
-			fmt.Println("Checking for missing game images...")
-			if err := imageService.CacheMissingImages(games, gameMetaMap, imgDir); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
-			}
+	if err == nil && len(games) > 0 {
+		fmt.Println("Checking for missing game images...")
+		if err := imageService.CacheMissingImages(games, gameMetaMap, imgDir); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 		}
 	}
 
@@ -166,6 +148,8 @@ func Run() error {
 	gameRouter.HandleFunc("/{game}/start", gameHandler.StartGame).Methods("POST")
 	gameRouter.HandleFunc("/{game}/stop", gameHandler.StopGame).Methods("POST")
 	gameRouter.HandleFunc("/{game}/restart", gameHandler.RestartGame).Methods("POST")
+	gameRouter.HandleFunc("/{game}/enable", gameHandler.EnableGame).Methods("POST")
+	gameRouter.HandleFunc("/{game}/disable", gameHandler.DisableGame).Methods("POST")
 	gameRouter.HandleFunc("/{game}/logs", gameHandler.StreamLogs).Methods("GET")
 	gameRouter.HandleFunc("/{game}/status", gameHandler.GetGameStatus).Methods("GET")
 	gameRouter.HandleFunc("/{game}/metadata", gameHandler.UpdateMetadata).Methods("PATCH")

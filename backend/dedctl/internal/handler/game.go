@@ -122,6 +122,58 @@ func (h *GameHandler) RestartGame(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *GameHandler) EnableGame(w http.ResponseWriter, r *http.Request) {
+	isAdmin, _ := r.Context().Value("is_admin").(bool)
+	if !isAdmin {
+		WriteError(w, http.StatusForbidden, "Admin access required")
+		return
+	}
+
+	vars := mux.Vars(r)
+	gameName := vars["game"]
+
+	err := h.gameBackend.EnableGame(gameName)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to enable game: %v", err))
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, CommonResponse{
+		Success: true,
+		Message: fmt.Sprintf("Game %s enabled successfully", gameName),
+		Data: map[string]string{
+			"game":   gameName,
+			"enabled": "true",
+		},
+	})
+}
+
+func (h *GameHandler) DisableGame(w http.ResponseWriter, r *http.Request) {
+	isAdmin, _ := r.Context().Value("is_admin").(bool)
+	if !isAdmin {
+		WriteError(w, http.StatusForbidden, "Admin access required")
+		return
+	}
+
+	vars := mux.Vars(r)
+	gameName := vars["game"]
+
+	err := h.gameBackend.DisableGame(gameName)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to disable game: %v", err))
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, CommonResponse{
+		Success: true,
+		Message: fmt.Sprintf("Game %s disabled successfully", gameName),
+		Data: map[string]string{
+			"game":   gameName,
+			"enabled": "false",
+		},
+	})
+}
+
 func escapeSSEData(data string) string {
 	data = strings.ReplaceAll(data, "\\", "\\\\")
 	data = strings.ReplaceAll(data, "\n", "\\n")

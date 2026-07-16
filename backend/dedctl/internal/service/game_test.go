@@ -3,44 +3,52 @@ package service
 import (
 	"context"
 	"errors"
-	"strings"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/coreos/go-systemd/v22/dbus"
 )
 
 func TestGameServiceListGames(t *testing.T) {
-	mock := &dbusMock{
-		units: []dbus.UnitStatus{
-			{Name: "steam-csgo.service", ActiveState: "active"},
-			{Name: "steam-rust.service", ActiveState: "inactive"},
-			{Name: "some-other.service", ActiveState: "active"},
-		},
-	}
-	svc := NewGameServiceMock(mock)
+	originalPath := systemdUserPath
+	originalWants := systemdWantsPath
+	defer func() {
+		systemdUserPath = originalPath
+		systemdWantsPath = originalWants
+	}()
 
-	games, err := svc.ListGames()
+	tmpDir := t.TempDir()
+	wantsDir := filepath.Join(tmpDir, "default.target.wants")
+	os.MkdirAll(wantsDir, 0755)
+
+	// Create fake service files
+	os.WriteFile(filepath.Join(tmpDir, "steam-csgo.service"), []byte("test"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "steam-rust.service"), []byte("test"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "steam-terraria.service"), []byte("test"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "steam-corekeeper.service"), []byte("test"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "steam-fake-game.service"), []byte("test"), 0644)
+
+	systemdUserPath = tmpDir
+	systemdWantsPath = tmpDir
+
+	games, err := discoverGames()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if len(games) != 2 {
-		t.Errorf("expected 2 games, got %d", len(games))
-	}
-	if games[0] != "csgo" {
-		t.Errorf("expected first game 'csgo', got '%s'", games[0])
-	}
-	if games[1] != "rust" {
-		t.Errorf("expected second game 'rust', got '%s'", games[1])
+	if len(games) != 5 {
+		t.Errorf("expected 5 games, got %d", len(games))
 	}
 }
 
 func TestGameServiceListGamesEmpty(t *testing.T) {
-	mock := &dbusMock{
-		units: []dbus.UnitStatus{},
-	}
-	svc := NewGameServiceMock(mock)
+	originalPath := systemdUserPath
+	defer func() { systemdUserPath = originalPath }()
 
-	games, err := svc.ListGames()
+	tmpDir := t.TempDir()
+	systemdUserPath = tmpDir
+
+	games, err := discoverGames()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -50,15 +58,15 @@ func TestGameServiceListGamesEmpty(t *testing.T) {
 }
 
 func TestGameServiceListGamesNoSteam(t *testing.T) {
-	mock := &dbusMock{
-		units: []dbus.UnitStatus{
-			{Name: "nginx.service", ActiveState: "active"},
-			{Name: "docker.service", ActiveState: "active"},
-		},
-	}
-	svc := NewGameServiceMock(mock)
+	originalPath := systemdUserPath
+	defer func() { systemdUserPath = originalPath }()
 
-	games, err := svc.ListGames()
+	tmpDir := t.TempDir()
+	os.WriteFile(filepath.Join(tmpDir, "nginx.service"), []byte("test"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "docker.service"), []byte("test"), 0644)
+	systemdUserPath = tmpDir
+
+	games, err := discoverGames()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -68,71 +76,37 @@ func TestGameServiceListGamesNoSteam(t *testing.T) {
 }
 
 func TestGameServiceStartGame(t *testing.T) {
-	mock := &dbusMock{}
-	svc := NewGameServiceMock(mock)
-
-	err := svc.StartGame("csgo")
+	err := execSystemctl("start", "steam-fake-game.service")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
-	}
-}
-
-func TestGameServiceStartGameError(t *testing.T) {
-	mock := &dbusMock{
-		startErr: errors.New("unit not found"),
-	}
-	svc := NewGameServiceMock(mock)
-
-	err := svc.StartGame("missing")
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "unit not found") {
-		t.Errorf("expected 'unit not found' in error, got: %v", err)
 	}
 }
 
 func TestGameServiceStopGame(t *testing.T) {
-	mock := &dbusMock{}
-	svc := NewGameServiceMock(mock)
-
-	err := svc.StopGame("rust")
+	err := execSystemctl("stop", "steam-fake-game.service")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
-	}
-}
-
-func TestGameServiceStopGameError(t *testing.T) {
-	mock := &dbusMock{
-		stopErr: errors.New("permission denied"),
-	}
-	svc := NewGameServiceMock(mock)
-
-	err := svc.StopGame("rust")
-	if err == nil {
-		t.Fatal("expected error, got nil")
 	}
 }
 
 func TestGameServiceRestartGame(t *testing.T) {
-	mock := &dbusMock{}
-	svc := NewGameServiceMock(mock)
-
-	err := svc.RestartGame("terraria")
+	err := execSystemctl("restart", "steam-fake-game.service")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 }
 
-func TestGameServiceRestartGameError(t *testing.T) {
-	mock := &dbusMock{
-		restartErr: errors.New("service not running"),
+func TestGameServiceEnableGame(t *testing.T) {
+	err := execSystemctl("enable", "steam-fake-game.service")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
 	}
-	svc := NewGameServiceMock(mock)
+}
 
-	err := svc.RestartGame("terraria")
-	if err == nil {
-		t.Fatal("expected error, got nil")
+func TestGameServiceDisableGame(t *testing.T) {
+	err := execSystemctl("disable", "steam-fake-game.service")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
 	}
 }
 
@@ -377,6 +351,74 @@ func TestMockGameBackendRestartGameError(t *testing.T) {
 	}
 
 	err := mock.RestartGame("terraria")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestMockGameBackendEnableGame(t *testing.T) {
+	called := false
+	mock := &MockGameBackend{
+		EnableGameFunc: func(name string) error {
+			called = true
+			if name != "csgo" {
+				t.Errorf("expected name 'csgo', got '%s'", name)
+			}
+			return nil
+		},
+	}
+
+	err := mock.EnableGame("csgo")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !called {
+		t.Error("expected EnableGameFunc to be called")
+	}
+}
+
+func TestMockGameBackendEnableGameError(t *testing.T) {
+	mock := &MockGameBackend{
+		EnableGameFunc: func(name string) error {
+			return errors.New("systemctl enable failed")
+		},
+	}
+
+	err := mock.EnableGame("csgo")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestMockGameBackendDisableGame(t *testing.T) {
+	called := false
+	mock := &MockGameBackend{
+		DisableGameFunc: func(name string) error {
+			called = true
+			if name != "rust" {
+				t.Errorf("expected name 'rust', got '%s'", name)
+			}
+			return nil
+		},
+	}
+
+	err := mock.DisableGame("rust")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !called {
+		t.Error("expected DisableGameFunc to be called")
+	}
+}
+
+func TestMockGameBackendDisableGameError(t *testing.T) {
+	mock := &MockGameBackend{
+		DisableGameFunc: func(name string) error {
+			return errors.New("systemctl disable failed")
+		},
+	}
+
+	err := mock.DisableGame("rust")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

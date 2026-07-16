@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -17,6 +20,7 @@ type GameInfo struct {
 	AppId     int    `json:"app_id"`
 	Order     int    `json:"order"`
 	HasImage  bool   `json:"has_image"`
+	Enabled   bool   `json:"enabled"`
 	MainImage string `json:"main_image"`
 	Icon      string `json:"icon"`
 }
@@ -35,6 +39,8 @@ type GameBackend interface {
 	StartGame(name string) error
 	StopGame(name string) error
 	RestartGame(name string) error
+	EnableGame(name string) error
+	DisableGame(name string) error
 	GetGameStatus(name string) (string, error)
 	StreamLogs(ctx context.Context, name string, callback func(string)) error
 	UpdateMetadata(name string, appId, order int) error
@@ -63,6 +69,10 @@ var imgDir string
 var metaDir string
 var gameMetadataObj *config.Metadata
 
+// Default systemd user path for scanning service files
+var systemdUserPath = filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user")
+var systemdWantsPath = filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user", "default.target.wants")
+
 // SetMetadataAndImages sets the metadata and image service references for use by game operations.
 func SetMetadataAndImages(meta map[string]struct{ AppId int; Order int }, svc *ImageService, dir string) {
 	gameMetadata = meta
@@ -74,6 +84,43 @@ func SetMetadataAndImages(meta map[string]struct{ AppId int; Order int }, svc *I
 func SetMetaDir(dir string, obj *config.Metadata) {
 	metaDir = dir
 	gameMetadataObj = obj
+}
+
+// execSystemctl runs systemctl --user <args>
+func execSystemctl(args ...string) error {
+	cmd := exec.Command("systemctl", append([]string{"--user"}, args...)...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("systemctl %s: %s (%w)", strings.Join(args, " "), string(output), err)
+	}
+	return nil
+}
+
+// isServiceEnabled checks if a game service is enabled (symlinked in default.target.wants)
+func isServiceEnabled(name string) bool {
+	wantsFile := filepath.Join(systemdWantsPath, fmt.Sprintf("steam-%s.service", name))
+	_, err := os.Lstat(wantsFile)
+	return err == nil
+}
+
+// discoverGames scans ~/.config/systemd/user/ for all steam-*.service files
+func discoverGames() ([]string, error) {
+	files, err := os.ReadDir(systemdUserPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read systemd user directory: %w", err)
+	}
+
+	var games []string
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		if strings.HasPrefix(f.Name(), "steam-") && strings.HasSuffix(f.Name(), ".service") {
+			gameName := strings.TrimSuffix(strings.TrimPrefix(f.Name(), "steam-"), ".service")
+			games = append(games, gameName)
+		}
+	}
+	return games, nil
 }
 
 // NewGameService creates a new GameService connected to systemd D-Bus
@@ -104,42 +151,20 @@ func NewGameServiceWithInterface(conn dbusConn) *GameService {
 
 
 
-// ListGames returns all available Steam games
+// ListGames returns all available Steam games from systemd user service files
 func (s *GameService) ListGames() ([]string, error) {
-	units, err := s.conn.ListUnits()
-	if err != nil {
-		return nil, err
-	}
-
-	var games []string
-	for _, unit := range units {
-		if strings.HasPrefix(unit.Name, "steam-") && strings.HasSuffix(unit.Name, ".service") {
-			gameName := strings.TrimPrefix(strings.TrimSuffix(unit.Name, ".service"), "steam-")
-			games = append(games, gameName)
-		}
-	}
-
-	return games, nil
+	return discoverGames()
 }
 
-// ListGamesWithMeta returns games with metadata enrichment.
-// The meta and imgDir parameters come from the server startup.
+// ListGamesWithMeta returns games with metadata enrichment including enabled state
 func (s *GameService) ListGamesWithMeta() ([]GameInfo, error) {
-	units, err := s.conn.ListUnits()
+	games, err := discoverGames()
 	if err != nil {
 		return nil, err
-	}
-
-	gameNames := make(map[string]bool)
-	for _, unit := range units {
-		if strings.HasPrefix(unit.Name, "steam-") && strings.HasSuffix(unit.Name, ".service") {
-			gameName := strings.TrimPrefix(strings.TrimSuffix(unit.Name, ".service"), "steam-")
-			gameNames[gameName] = true
-		}
 	}
 
 	var infos []GameInfo
-	for name := range gameNames {
+	for _, name := range games {
 		gm, exists := gameMetadata[name]
 		appId := 0
 		order := 0
@@ -152,6 +177,7 @@ func (s *GameService) ListGamesWithMeta() ([]GameInfo, error) {
 			AppId:     appId,
 			Order:     order,
 			HasImage:  appId > 0 && imageService.ImageExists(appId, imgDir),
+			Enabled:   isServiceEnabled(name),
 			MainImage: gameMetadataObj.GetMainImage(),
 			Icon:      gameMetadataObj.GetIcon(),
 		})
@@ -160,25 +186,29 @@ func (s *GameService) ListGamesWithMeta() ([]GameInfo, error) {
 	return infos, nil
 }
 
-// StartGame starts a Steam game server
+// StartGame starts a Steam game server (does NOT enable it)
 func (s *GameService) StartGame(gameName string) error {
-	unitName := fmt.Sprintf("steam-%s.service", gameName)
-	_, err := s.conn.StartUnit(unitName, "replace", nil)
-	return err
+	return execSystemctl("start", fmt.Sprintf("steam-%s.service", gameName))
 }
 
-// StopGame stops a Steam game server
+// StopGame stops a Steam game server (does NOT disable it)
 func (s *GameService) StopGame(gameName string) error {
-	unitName := fmt.Sprintf("steam-%s.service", gameName)
-	_, err := s.conn.StopUnit(unitName, "replace", nil)
-	return err
+	return execSystemctl("stop", fmt.Sprintf("steam-%s.service", gameName))
 }
 
-// RestartGame restarts a Steam game server
+// RestartGame restarts a Steam game server (does NOT affect enabled state)
 func (s *GameService) RestartGame(gameName string) error {
-	unitName := fmt.Sprintf("steam-%s.service", gameName)
-	_, err := s.conn.RestartUnit(unitName, "replace", nil)
-	return err
+	return execSystemctl("restart", fmt.Sprintf("steam-%s.service", gameName))
+}
+
+// EnableGame enables a Steam game to start on login (creates symlink)
+func (s *GameService) EnableGame(gameName string) error {
+	return execSystemctl("enable", fmt.Sprintf("steam-%s.service", gameName))
+}
+
+// DisableGame disables a Steam game from starting on login (removes symlink)
+func (s *GameService) DisableGame(gameName string) error {
+	return execSystemctl("disable", fmt.Sprintf("steam-%s.service", gameName))
 }
 
 // GetGameStatus returns the status of a Steam game server
@@ -386,17 +416,19 @@ func (m *dbusMock) RestartUnit(name string, mode string, ch chan<- string) (int,
 
 // MockGameBackend is a test double for GameBackend
 type MockGameBackend struct {
-	ListGamesFunc          func() ([]string, error)
-	ListGamesWithMetaFunc  func() ([]GameInfo, error)
-	StartGameFunc          func(name string) error
-	StopGameFunc           func(name string) error
-	RestartGameFunc        func(name string) error
-	GetGameStatusFunc      func(name string) (string, error)
-	StreamLogsFunc         func(ctx context.Context, name string, callback func(string)) error
-	UpdateMetadataFunc     func(name string, appId, order int) error
+	ListGamesFunc            func() ([]string, error)
+	ListGamesWithMetaFunc    func() ([]GameInfo, error)
+	StartGameFunc            func(name string) error
+	StopGameFunc             func(name string) error
+	RestartGameFunc          func(name string) error
+	EnableGameFunc           func(name string) error
+	DisableGameFunc          func(name string) error
+	GetGameStatusFunc        func(name string) (string, error)
+	StreamLogsFunc           func(ctx context.Context, name string, callback func(string)) error
+	UpdateMetadataFunc       func(name string, appId, order int) error
 	UpdateGlobalMetadataFunc func(field, value string) error
-	UpdateArtFunc          func(name string, appId int) error
-	GetServerInfoFunc      func() ServerInfo
+	UpdateArtFunc            func(name string, appId int) error
+	GetServerInfoFunc        func() ServerInfo
 }
 
 // ListGames implements GameBackend
@@ -428,6 +460,16 @@ func (m *MockGameBackend) StopGame(name string) error {
 // RestartGame implements GameBackend
 func (m *MockGameBackend) RestartGame(name string) error {
 	return m.RestartGameFunc(name)
+}
+
+// EnableGame implements GameBackend
+func (m *MockGameBackend) EnableGame(name string) error {
+	return m.EnableGameFunc(name)
+}
+
+// DisableGame implements GameBackend
+func (m *MockGameBackend) DisableGame(name string) error {
+	return m.DisableGameFunc(name)
 }
 
 // GetGameStatus implements GameBackend
