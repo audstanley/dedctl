@@ -38,11 +38,14 @@ go run main.go server
 
 ```bash
 cd frontend/games-frontend
+cp .env.example .env  # Set VITE_API_BASE_URL=http://127.0.0.1:8080 — the URL where the backend API is running
 npm install
 npm run dev
 ```
 
 Open [http://localhost:5174](http://localhost:5174) to access the dashboard.
+
+> **Note:** `VITE_API_BASE_URL` must point to the address and port where the backend is listening. If the backend is running on the same machine, use `http://127.0.0.1:8080` (or whichever port you configured). If the frontend and backend are on different machines, use the backend's IP address.
 
 ## Project Structure
 
