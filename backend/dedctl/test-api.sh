@@ -10,19 +10,19 @@ sleep 2
 
 # Test API endpoints
 echo "Testing authentication endpoints..."
-curl -X POST http://localhost:8080/auth/register \
+curl -X POST http://localhost:8085/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"password","is_admin":true}' \
   && echo "User registration completed"
 
 echo "Testing login endpoint..."
-curl -X POST http://localhost:8080/auth/login \
+curl -X POST http://localhost:8085/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"password"}' \
   && echo "Login completed"
 
 echo "Testing game listing..."
-curl -X GET http://localhost:8080/games \
+curl -X GET http://localhost:8085/games \
   && echo "Game listing completed"
 
 echo "API test completed successfully!"

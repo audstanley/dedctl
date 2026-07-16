@@ -14,7 +14,7 @@ export default defineConfig({
 		},
 		proxy: {
 			'/images': {
-				target: 'http://192.168.1.18:8080',
+				target: 'http://192.168.1.18:8085',
 				changeOrigin: true,
 			},
 		},
