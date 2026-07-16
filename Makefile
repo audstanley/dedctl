@@ -1,12 +1,12 @@
 .PHONY: build-backend build-frontend run-backend run-frontend clean all help
 
-BUILD_DIR = backend/steam-game-control
+BUILD_DIR = backend/dedctl
 FRONTEND_DIR = frontend/games-frontend
 
 # Build backend
 build-backend:
 	@echo "Building backend..."
-	@cd $(BUILD_DIR) && go build -o steamctl main.go
+	@cd $(BUILD_DIR) && go build -o dedctl main.go
 	@echo "Backend built successfully"
 
 # Build frontend
@@ -34,7 +34,7 @@ run-backend:
 		fi; \
 	fi
 	@mkdir -p $(BUILD_DIR)/logs
-	@cd $(BUILD_DIR) && nohup go run main.go > logs/backend.log 2>&1 & echo $$! > $(BUILD_DIR)/backend.pid
+	@cd $(BUILD_DIR) && nohup go run main.go --config ~/.dedctl/config.yaml server > logs/backend.log 2>&1 & echo $$! > $(BUILD_DIR)/backend.pid
 	@echo "Backend started (PID: $$(cat $(BUILD_DIR)/backend.pid))"
 
 # Stop backend
@@ -91,7 +91,7 @@ stop-frontend:
 # Run both backend and frontend
 run: run-backend run-frontend
 	@echo "Both services started"
-	@echo "Backend: http://localhost:8080"
+	@echo "Backend: http://localhost:8085"
 	@echo "Frontend: http://localhost:5174"
 
 # Stop both backend and frontend
@@ -101,7 +101,7 @@ stop: stop-backend stop-frontend
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	@rm -f $(BUILD_DIR)/steamctl $(BUILD_DIR)/backend.pid $(BUILD_DIR)/backend.log
+	@rm -f $(BUILD_DIR)/dedctl $(BUILD_DIR)/backend.pid $(BUILD_DIR)/backend.log
 	@rm -f $(FRONTEND_DIR)/frontend.pid $(FRONTEND_DIR)/frontend.log
 	@rm -rf $(FRONTEND_DIR)/dist $(FRONTEND_DIR)/node_modules $(FRONTEND_DIR)/.svelte-kit
 	@echo "Cleaned"
