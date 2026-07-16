@@ -15,6 +15,16 @@ import (
 func main() {
 	rootCmd := cmd.NewRootCmd()
 
+	// Check for --config flag before Cobra processes args
+	for i := 1; i < len(os.Args); i++ {
+		if os.Args[i] == "--config" && i+1 < len(os.Args) {
+			config.SetConfigFile(os.Args[i+1])
+			// Remove --config and its value from os.Args so Cobra doesn't see them
+			os.Args = append(os.Args[:i], os.Args[i+2:]...)
+			break
+		}
+	}
+
 	if len(os.Args) > 1 {
 		arg := os.Args[1]
 		if arg == "hash" {
@@ -38,12 +48,6 @@ func main() {
 	}
 
 	fmt.Println("Initializing dedctl - Dedicated Game Controller...")
-
-	for i := 1; i < len(os.Args); i++ {
-		if os.Args[i] == "--config" && i+1 < len(os.Args) {
-			config.SetConfigFile(os.Args[i+1])
-		}
-	}
 
 	err := app.Run()
 	if err != nil {

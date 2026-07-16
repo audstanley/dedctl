@@ -34,7 +34,7 @@ run-backend:
 		fi; \
 	fi
 	@mkdir -p $(BUILD_DIR)/logs
-	@cd $(BUILD_DIR) && nohup go run main.go --config ~/.dedctl/config.yaml server > logs/backend.log 2>&1 & echo $$! > $(BUILD_DIR)/backend.pid
+	@cd $(BUILD_DIR) && nohup go run main.go --config ~/.dedctl/config.yaml > logs/backend.log 2>&1 & echo $$! > $(BUILD_DIR)/backend.pid
 	@echo "Backend started (PID: $$(cat $(BUILD_DIR)/backend.pid))"
 
 # Stop backend
