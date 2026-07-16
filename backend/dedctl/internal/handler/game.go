@@ -29,12 +29,13 @@ func (h *GameHandler) ListGames(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type gameInfoResponse struct {
-		Name     string `json:"name"`
-		AppId    int    `json:"app_id"`
-		Order    int    `json:"order"`
-		HasImage bool   `json:"has_image"`
-	}
+type gameInfoResponse struct {
+	Name     string `json:"name"`
+	AppId    int    `json:"app_id"`
+	Order    int    `json:"order"`
+	HasImage bool   `json:"has_image"`
+	Enabled  bool   `json:"enabled"`
+}
 
 	respInfos := make([]gameInfoResponse, 0, len(infos))
 	for _, info := range infos {
@@ -43,6 +44,7 @@ func (h *GameHandler) ListGames(w http.ResponseWriter, r *http.Request) {
 			AppId:    info.AppId,
 			Order:    info.Order,
 			HasImage: info.HasImage,
+			Enabled:  info.Enabled,
 		})
 	}
 
