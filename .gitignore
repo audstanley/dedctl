@@ -1,6 +1,6 @@
 # Build artifacts
-backend/steam-game-control/data/
-backend/steam-game-control/dist/
+backend/dedctl/data/
+backend/dedctl/dist/
 frontend/games-frontend/node_modules/
 frontend/games-frontend/.svelte-kit/
 frontend/games-frontend/dist/
@@ -30,3 +30,9 @@ logs/
 *.pem
 *.key
 secrets/
+
+# PID files
+*.pid
+
+# Compiled binaries
+backend/dedctl/dedctl
