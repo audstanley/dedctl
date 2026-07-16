@@ -1,0 +1,14 @@
+# Game metadata configuration
+# Each key is a game name matching the systemd service (steam-{name}.service)
+# app_id: Steam AppID (used for cover image fetching from SteamDB)
+# order: Display order on the dashboard (0 = unsorted, sorted alphabetically at the end)
+#
+# After adding new games, restart the backend to auto-discover them.
+# To fetch cover images, run: dedctl cache-images [game names...]
+#
+# Images are cached at: {metadata_dir}/img/{app_id}.jpg
+
+games:
+  fake-game:
+    app_id: 0
+    order: 0

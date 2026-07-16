@@ -1,0 +1,12 @@
+main_image: main_cuttle.png
+icon: cuttle_icon.png
+games:
+    corekeeper:
+        app_id: 1621690
+        order: 3
+    fake-game:
+        app_id: 1371980
+        order: 1
+    windrose:
+        app_id: 3041230
+        order: 2

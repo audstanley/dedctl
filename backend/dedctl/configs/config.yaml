@@ -1,0 +1,31 @@
+server:
+  port: "8080"
+  host: "0.0.0.0"
+  origins:
+    - "http://localhost:5174"
+    - "http://127.0.0.1:5174"
+    - "http://192.168.1.18:5174"
+    - "http://192.168.1.81:5174"
+    - "http://192.168.1.18:8080"
+    - "http://172.17.0.1:5174"
+    - "http://172.18.0.1:5174"
+    - "http://your-domain.com"
+
+jwt:
+  secret_key: "your-secret-key-here"
+  expires_in: "24h"
+
+game:
+  base_path: "$HOME/Games"
+
+users:
+  # password_type: sha512 (default), bcrypt, or plain
+  # Generate hashes with: dedctl hash <password> <type>
+  - username: admin
+    password_hash: "7fcf4ba391c48784edde599889d6e3f1e47a27db36ecc050cc92f259bfac38afad2c68a1ae804d77075e8fb722503f3eca2b2c1006ee6f6c7b7628cb45fffd1d"
+    password_type: sha512
+    is_admin: true
+  - username: operator
+    password_hash: "9a5f09d064da0a5ddd36b9a06fa7a5ef87b98b605d21f404b4b9d6bc3c807878541afd9e46bf977c559c70e9ab7657ec2a4069c69131c70d13e3c02d5a133f0e"
+    password_type: sha512
+    is_admin: false
