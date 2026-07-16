@@ -1,77 +1,40 @@
-# Audstanley Games - Game Server Control Platform
+<div align="center">
 
-A full-stack game server management platform with a Go backend and Svelte frontend for controlling Steam game servers.
+<img src="backend/dedctl/configs/img/main_cuttle.png" alt="dedctl" width="200" />
 
-## Architecture
+# dedctl
 
-```
-audstanley-games/
-├── backend/
-│   └── steam-game-control/      # Go backend API
-│       ├── internal/
-│       │   ├── app/              # Server setup
-│       │   ├── config/           # Configuration
-│       │   ├── handler/          # HTTP handlers
-│       │   ├── service/          # Business logic
-│       │   └── utils/            # Utilities
-│       ├── cmd/                  # CLI interface
-│       ├── configs/              # Config files
-│       ├── go.mod                # Dependencies
-│       └── main.go
-│
-├── frontend/
-│   └── games-frontend/           # SvelteKit frontend
-│       ├── src/
-│       │   ├── lib/              # Shared components
-│       │   └── routes/           # Page routes
-│       ├── svelte.config.js
-│       ├── vite.config.js
-│       └── package.json
-│
-└── README.md
-```
+**Dedctl** is a Dedicated Game Controller for managing Steam game servers on Linux. It provides a web-based dashboard to start, stop, restart, and monitor game servers managed by systemd, along with real-time log streaming.
 
-## Backend (Go)
+[Backend](backend/) | [Frontend](frontend/) | [Contributing](CONTRIBUTING.md)
 
-The backend provides REST API endpoints for game server control:
+</div>
 
-- **Authentication**: JWT-based login (config-file users)
-- **Game Control**: Start/stop/restart/status Steam game servers
-- **Log Streaming**: Real-time log viewing via Server-Sent Events
-- **User Management**: Multiple user accounts with admin support
+## Overview
 
-### API Endpoints
+dedctl consists of two components:
 
-```
-POST   /auth/login               # User authentication
-GET    /games                    # List available games (auth required)
-GET    /games/{game}/status      # Get game server status (auth required)
-POST   /games/{game}/start       # Start game server (auth required)
-POST   /games/{game}/stop        # Stop game server (auth required)
-POST   /games/{game}/restart     # Restart game server (auth required)
-GET    /games/{game}/logs        # Stream logs via SSE (auth required)
-```
+- **Backend** (`backend/dedctl/`) — A Go CLI tool and REST API that interacts with systemd to manage Steam game servers (`steam-<game>.service`), handle authentication via JWT, serve game cover images, and stream logs via systemd journal.
+- **Frontend** (`frontend/games-frontend/`) — A SvelteKit web application with a dark-themed dashboard for game server management, login, and log viewing.
 
-### Running the Backend
+## Quick Start
+
+### Prerequisites
+
+- Go 1.26.1 or higher
+- Node.js 18+ and npm
+- Linux system with systemd and user D-Bus
+- Steam game servers running as systemd user services (`steam-<game>.service`)
+
+### Backend
 
 ```bash
-cd backend/steam-game-control
+cd backend/dedctl
 go mod tidy
-go run main.go
+go run main.go server
 ```
 
-Server runs on `http://localhost:8080` by default.
-
-## Frontend (Svelte)
-
-The frontend provides a web dashboard for managing game servers:
-
-- **Login**: User authentication interface
-- **Dashboard**: View all available game servers
-- **Game Controls**: Start/stop/restart servers from UI
-- **Log Viewer**: Real-time log streaming
-
-### Running the Frontend
+### Frontend
 
 ```bash
 cd frontend/games-frontend
@@ -79,40 +42,67 @@ npm install
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5174` by default.
+Open [http://localhost:5174](http://localhost:5174) to access the dashboard.
 
-## Technologies
+## Project Structure
 
-### Backend
-- Go 1.26.1
-- Gorilla Mux (HTTP routing)
-- Cobra (CLI)
-- Viper (Configuration)
-- JWT (Authentication)
-- go-systemd (systemctl integration)
-- Config-file based users with SHA-256 hashed passwords
+```
+dedctl/
+├── backend/dedctl/          # Go backend
+│   ├── cmd/dedctl/          # CLI commands (hash, cache-images)
+│   ├── internal/
+│   │   ├── app/             # Server setup and routing
+│   │   ├── config/          # Configuration and metadata loading
+│   │   ├── handler/         # HTTP request handlers
+│   │   ├── service/         # Business logic (game, auth, images)
+│   │   └── utils/           # JWT utilities
+│   ├── configs/             # Default config and metadata files
+│   └── main.go
+├── frontend/games-frontend/ # SvelteKit frontend
+│   ├── src/
+│   │   ├── lib/             # API client, stores, assets
+│   │   └── routes/          # Pages (login, dashboard, game details, logs, admin)
+│   └── static/
+├── CONTRIBUTING.md
+└── Makefile
+```
 
-### Frontend
-- SvelteKit
-- Tailwind CSS
-- Svelte stores (state management)
-- EventSource API (log streaming)
+## Architecture
 
-## Implementation Phases
+```
+┌──────────────┐     HTTP/REST      ┌────────────────┐     systemd D-Bus    ┌──────────────┐
+│   Frontend   │ ◄────────────────► │   Backend API   │ ◄──────────────────► │  systemd      │
+│  SvelteKit   │     API calls      │   Go + Gorilla  │   service mgmt      │  user session │
+│              │                    │                 │   journal streaming │               │
+└──────────────┘                    └────────────────┘                     └──────────────┘
+```
 
-✅ **Phase 1**: Git repository setup with backend moved to `backend/`
-✅ **Phase 2**: SvelteKit frontend with Tailwind CSS
-✅ **Phase 3**: API client and authentication stores
-✅ **Phase 4**: Login and registration pages
-✅ **Phase 5**: Dashboard layout with navigation
-✅ **Phase 6**: Game list dashboard
-✅ **Phase 7**: Game detail page with controls
-✅ **Phase 8**: Real-time log viewer with SSE
-✅ **Phase 9**: Flowbite Svelte component integration
-✅ **Phase 10**: Auth refactor (config-file users, removed registration), bug fixes, unit tests, real game status endpoint
+## Configuration
+
+The backend configuration file (`configs/config.yaml`) defines:
+
+- **Server** — host, port, and CORS origins
+- **JWT** — secret key and token expiry
+- **Game** — base path for game servers
+- **Users** — usernames, password hashes, and admin flags
+
+## API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/auth/login` | Authenticate and get JWT | No |
+| GET | `/server-info` | Get global server metadata | No |
+| GET | `/games` | List all game servers | Yes |
+| POST | `/games/{game}/start` | Start a game server | Yes |
+| POST | `/games/{game}/stop` | Stop a game server | Yes |
+| POST | `/games/{game}/restart` | Restart a game server | Yes |
+| GET | `/games/{game}/status` | Get game server status | Yes |
+| GET | `/games/{game}/logs` | Stream logs (SSE) | Yes |
+| PATCH | `/games/{game}/metadata` | Update game metadata | Yes |
+| POST | `/games/{game}/update-art` | Download game cover art | Yes |
+| PATCH | `/games/settings` | Update global settings | Yes |
+| GET | `/images/{name}` | Serve game cover images | No |
 
 ## License
 
-## License
-
-MIT
+See [LICENSE](LICENSE).
