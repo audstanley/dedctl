@@ -68,6 +68,10 @@ func Run() error {
 	metaDir := resolveMetadataDir(cfgDir)
 	imgDir := filepath.Join(metaDir, "img")
 
+	if err := ensureDefaultImages(imgDir); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to ensure default images: %v\n", err)
+	}
+
 	// Ensure metadata.yaml and img/ directory exist
 	metaPath := filepath.Join(metaDir, "metadata.yaml")
 	if _, err := os.Stat(metaPath); os.IsNotExist(err) {
