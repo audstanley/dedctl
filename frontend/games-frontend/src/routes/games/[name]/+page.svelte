@@ -26,7 +26,11 @@
       const updated = gamesStore.getGameInfo(name);
       gameInfo = updated ?? null;
     }
-    gameStatus = await gamesStore.updateGameStatus(name);
+    try {
+      gameStatus = await gamesStore.updateGameStatus(name);
+    } catch {
+      gameStatus = 'not-found';
+    }
     loading = false;
   });
 
@@ -129,8 +133,8 @@
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Button color="green" onclick={handleStart} disabled={loading || gameStatus === 'active'}>Start Server</Button>
-        <Button color="red" onclick={handleStop} disabled={loading || gameStatus === 'inactive'}>Stop Server</Button>
-        <Button color="blue" onclick={handleRestart} disabled={loading}>Restart Server</Button>
+        <Button color="red" onclick={handleStop} disabled={gameStatus === 'inactive' || gameStatus === 'not-found'}>Stop Server</Button>
+        <Button color="blue" onclick={handleRestart}>Restart Server</Button>
       </div>
 
       {#if adminUser}
