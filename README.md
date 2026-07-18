@@ -45,6 +45,18 @@ npm run dev
 
 Open [http://localhost:5174](http://localhost:5174) to access the dashboard.
 
+### Setup
+
+After cloning, copy the config and metadata files to your home directory:
+
+```bash
+mkdir -p ~/.dedctl
+cp backend/dedctl/configs/config.yaml ~/.dedctl/
+cp backend/dedctl/configs/metadata.yaml ~/.dedctl/
+```
+
+Edit `~/.dedctl/config.yaml` to set your own JWT secret key and password hashes (generate them with `dedctl hash <password> sha512`).
+
 > **Note:** `VITE_API_BASE_URL` must point to the address and port where the backend is listening. If the backend is running on the same machine, use `http://127.0.0.1:8080` (or whichever port you configured). If the frontend and backend are on different machines, use the backend's IP address.
 
 ## Project Structure
@@ -82,7 +94,7 @@ dedctl/
 
 ## Configuration
 
-The backend configuration file (`configs/config.yaml`) defines:
+The backend configuration file (`~/.dedctl/config.yaml`) defines:
 
 - **Server** — host, port, and CORS origins
 - **JWT** — secret key and token expiry

@@ -53,7 +53,7 @@ backend/dedctl/
 
 ### config.yaml
 
-Located at `configs/config.yaml` (or specified via `--config` flag):
+Located at `~/.dedctl/config.yaml` by default (or specified via `--config` flag):
 
 ```yaml
 server:
@@ -78,7 +78,7 @@ users:
 
 ### metadata.yaml
 
-Located alongside `config.yaml`, stores per-game metadata:
+Located at `~/.dedctl/metadata.yaml` (same directory as config.yaml), stores per-game metadata:
 
 ```yaml
 main_image: main_cuttle.png

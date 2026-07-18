@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -34,6 +36,6 @@ func resolveMetadataDir() string {
 	if metadataDir != "" {
 		return metadataDir
 	}
-	// Default to ./configs
-	return "./configs"
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".dedctl")
 }

@@ -63,7 +63,8 @@ func Run() error {
 	if cfgFileUsed := config.GetConfigFileUsed(); cfgFileUsed != "" {
 		cfgDir = filepath.Dir(cfgFileUsed)
 	} else {
-		cfgDir = "./configs"
+		home, _ := os.UserHomeDir()
+		cfgDir = filepath.Join(home, ".dedctl")
 	}
 	metaDir := resolveMetadataDir(cfgDir)
 	imgDir := filepath.Join(metaDir, "img")
