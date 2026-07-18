@@ -61,11 +61,11 @@ func LoadConfig() (*Config, error) {
 		if externalConfigFile != "" {
 			viperInstance.SetConfigFile(externalConfigFile)
 		} else {
-	viperInstance.SetConfigName("config")
-		viperInstance.SetConfigType("yaml")
-		viperInstance.AddConfigPath("$HOME/.dedctl/")
-		viperInstance.AddConfigPath("/etc/dedctl/")
-		viperInstance.AddConfigPath("./configs")
+			viperInstance.SetConfigName("config")
+			viperInstance.SetConfigType("yaml")
+			home, _ := os.UserHomeDir()
+			viperInstance.AddConfigPath(filepath.Join(home, ".dedctl"))
+			viperInstance.AddConfigPath("/etc/dedctl/")
 		}
 	}
 
